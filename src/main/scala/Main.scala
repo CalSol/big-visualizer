@@ -1,5 +1,7 @@
 package bigvis
 
+import javafx.event.EventHandler
+import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.beans.property.StringProperty
@@ -54,11 +56,13 @@ object Main extends JFXApp {
 
   val visualizationPane = new VBox {
     val timeAxis = new NumberAxis()
+    timeAxis.setAutoRanging(false)
 
     val rawData1 = (0 until 1024).map { i => (i, i + 64 * Math.random()) }
     val data1 = ObservableBuffer(rawData1 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
     val series1 = XYChart.Series[Number, Number]("test1", data1)
     val data1Axis = new NumberAxis()
+//    data1Axis.setAutoRanging(false)
     val lineChart1 = LineChart(timeAxis, data1Axis)
     lineChart1.title = "TestChart1"
     lineChart1.getData.add(series1)
@@ -67,6 +71,7 @@ object Main extends JFXApp {
     val data2 = ObservableBuffer(rawData2 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
     val series2 = XYChart.Series[Number, Number]("test2", data2)
     val data2Axis = new NumberAxis()
+//    data2Axis.setAutoRanging(false)
     val lineChart2 = LineChart(timeAxis, data2Axis)
     lineChart2.title = "TestChart2"
     lineChart2.getData.add(series2)
@@ -74,6 +79,32 @@ object Main extends JFXApp {
     children = Seq(lineChart1, lineChart2)
     setVgrow(lineChart1, Priority.Always)
     setVgrow(lineChart2, Priority.Always)
+
+    val SCALE_DELTA = 1.1
+    lineChart2.setOnScroll(new EventHandler[ScrollEvent] {
+      override def handle(event: ScrollEvent): Unit = {
+        println(s"scroll ${event.getDeltaX} ${event.getDeltaY}")
+        event.consume()
+        if (event.getDeltaY == 0) {
+          return
+        }
+        val scaleFactor = if (event.getDeltaY > 0) SCALE_DELTA else 1 / SCALE_DELTA
+        timeAxis.setLowerBound(timeAxis.getLowerBound + event.getDeltaY)
+        timeAxis.setUpperBound(timeAxis.getUpperBound + event.getDeltaY)
+        println(s"${timeAxis.getLowerBound}, ${timeAxis.getUpperBound}")
+      }
+    })
+
+    lineChart2.setOnMousePressed(new EventHandler[MouseEvent]() {
+      override def handle(event: MouseEvent): Unit = {
+        println(s"press ${event.getClickCount}")
+
+        if (event.getClickCount == 2) {
+          lineChart2.setScaleX(1.0)
+          lineChart2.setScaleY(1.0)
+        }
+      }
+    })
   }
 
   stage = new PrimaryStage {
