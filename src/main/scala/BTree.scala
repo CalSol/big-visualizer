@@ -94,14 +94,15 @@ class BTreeIntermediateNode[NodeType, LeafType](root: BTree[NodeType, LeafType],
   }
 
   def validate(): Boolean = {
+    val nodesValidated = nodes.map { node => node.validate() }.forall(_ == true)
     val timesOrdered = nodes.toSeq.grouped(2).map { case Seq(prev, next) =>
       prev.maxTime <= next.minTime
     }.forall(_ == true)
     val expectedData = root.aggregator.fromNodes(nodes.map { node =>
       ((node.minTime, node.maxTime), node.data)
     }.toSeq)
-    nodes.nonEmpty && minTime == nodes.head.minTime && maxTime == nodes.last.maxTime && timesOrdered &&
+    nodes.nonEmpty && minTime == nodes.head.minTime && maxTime == nodes.last.maxTime &&
+        nodesValidated && timesOrdered &&
         nodes.size <= root.nodeSize && data == expectedData
   }
 }
-
