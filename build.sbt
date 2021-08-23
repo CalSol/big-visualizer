@@ -6,7 +6,10 @@ scalaVersion := "2.13.5"
 
 idePackagePrefix := Some("bigvis")
 
-libraryDependencies += "org.scalafx" %% "scalafx" % "15.0.1-R21"
+libraryDependencies ++= Seq(
+  "org.scalafx" %% "scalafx" % "15.0.1-R21",
+  "com.github.tototoshi" %% "scala-csv" % "1.3.4",
+)
 
 // JavaFX binary detection, from http://www.scalafx.org/docs/quickstart/
 lazy val javaFXModules = {

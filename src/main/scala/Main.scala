@@ -1,6 +1,5 @@
 package bigvis
 
-import javafx.event.EventHandler
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -11,12 +10,59 @@ import scalafx.scene.chart.{LineChart, NumberAxis, XYChart}
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
 import scalafx.scene.layout.{Priority, VBox}
 import scalafx.scene.layout.VBox.setVgrow
+import collection.mutable
 
 
 // TODO split into data model
 case class DataItem(name: String) {
   val nameProp = StringProperty(name)
   val dataProp = StringProperty("0")
+}
+
+/**
+ * VBox containing several stacked charts, with glue to make their X axes appear synchronized
+ */
+class SharedAxisCharts extends VBox {
+  protected val timeAxes = mutable.ArrayBuffer[javafx.scene.chart.NumberAxis]()
+
+  // Adds a chart to the end of this stack of charts, and sets the axis properties to make it do the right thing
+  def addChart(chart: XYChart[Number, Number]): Unit = {
+    chart.setLegendVisible(false)
+
+    chart.getXAxis.setAnimated(false)
+    chart.getXAxis.setAutoRanging(false)
+
+    chart.getXAxis.setVisible(false)
+    chart.getXAxis.setTickMarkVisible(false)
+    chart.getXAxis.setTickLabelsVisible(false)
+
+    chart.getYAxis.setTickLabelRotation(270)  // to keep the chart size the same so stacked charts are consistent
+
+    chart.setOnScroll((t: ScrollEvent) => {
+      onScroll(t)
+    })
+    chart.setOnMousePressed((t: MouseEvent) => {
+      onMouse(t)
+    })
+
+    setVgrow(chart, Priority.Always)
+    children.add(chart)
+    timeAxes.append(chart.getXAxis.asInstanceOf[javafx.scene.chart.NumberAxis])  // TODO other axes types?
+  }
+
+  protected def onScroll(event: ScrollEvent): Unit = {
+    event.consume()
+
+    val lastAxis = timeAxes.last
+    timeAxes.foreach(timeAxis => {
+      timeAxis.setLowerBound(lastAxis.getLowerBound + event.getDeltaY)
+      timeAxis.setUpperBound(lastAxis.getUpperBound + event.getDeltaY)
+    })
+  }
+
+  protected def onMouse(event: MouseEvent): Unit = {
+
+  }
 }
 
 
@@ -54,66 +100,23 @@ object Main extends JFXApp {
     setVgrow(tree, Priority.Always)
   }
 
-  val visualizationPane = new VBox {
-    val rawData1 = (0 until 1024).map { i => (i, i + 64 * Math.random()) }
-    val data1 = ObservableBuffer(rawData1 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
-    val series1 = XYChart.Series[Number, Number]("test1", data1)
-    val time1Axis = new NumberAxis()
-    time1Axis.setAnimated(false)
-    time1Axis.setAutoRanging(false)
-    val data1Axis = new NumberAxis()
-//    data1Axis.setAutoRanging(false)
-    val lineChart1 = LineChart(time1Axis, data1Axis)
-    lineChart1.title = "TestChart1"
-    lineChart1.getData.add(series1)
-    lineChart1.getYAxis.setTickLabelRotation(270)  // to keep the chart size the same so stacked charts are consistent
-    lineChart1.setLegendVisible(false)
-    lineChart1.getXAxis.setVisible(false)  // only last chart needs visible time axis
-    lineChart1.getXAxis.setTickMarkVisible(false)
-    lineChart1.getXAxis.setTickLabelsVisible(false)
+  val rawData1 = (0 until 1024).map { i => (i, i + 64 * Math.random()) }
+  val data1 = ObservableBuffer(rawData1 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
+  val series1 = XYChart.Series[Number, Number]("test1", data1)
+  val lineChart1 = LineChart(new NumberAxis(), new NumberAxis())
+  lineChart1.getData.add(series1)
+  lineChart1.title = "TestChart1"
 
-    val rawData2 = (0 until 1024).map { i => (i, -i - 64 * Math.random()) }
-    val data2 = ObservableBuffer(rawData2 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
-    val series2 = XYChart.Series[Number, Number]("test2", data2)
-    val time2Axis = new NumberAxis()
-    time2Axis.setAnimated(false)
-    time2Axis.setAutoRanging(false)
-    val data2Axis = new NumberAxis()
-//    data2Axis.setAutoRanging(false)
-    val lineChart2 = LineChart(time2Axis, data2Axis)
-    lineChart2.title = "TestChart2"
-    lineChart2.getData.add(series2)
-    lineChart2.getYAxis.setTickLabelRotation(270)  // to keep the chart size the same so stacked charts are consistent
-    lineChart2.setLegendVisible(false)
+  val rawData2 = (0 until 1024).map { i => (i, -i + 64 * Math.random()) }
+  val data2 = ObservableBuffer(rawData2 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
+  val series2 = XYChart.Series[Number, Number]("test2", data2)
+  val lineChart2 = LineChart(new NumberAxis(), new NumberAxis())
+  lineChart2.getData.add(series2)
+  lineChart2.title = "TestChart2"
 
-    children = Seq(lineChart1, lineChart2)
-    setVgrow(lineChart1, Priority.Always)
-    setVgrow(lineChart2, Priority.Always)
-
-    val SCALE_DELTA = 1.1
-    lineChart2.setOnScroll(new EventHandler[ScrollEvent] {
-      override def handle(event: ScrollEvent): Unit = {
-        event.consume()
-        if (event.getDeltaY == 0) {
-          return
-        }
-        val scaleFactor = if (event.getDeltaY > 0) SCALE_DELTA else 1 / SCALE_DELTA
-        time1Axis.setLowerBound(time1Axis.getLowerBound + event.getDeltaY)
-        time1Axis.setUpperBound(time1Axis.getUpperBound + event.getDeltaY)
-        time2Axis.setLowerBound(time2Axis.getLowerBound + event.getDeltaY)
-        time2Axis.setUpperBound(time2Axis.getUpperBound + event.getDeltaY)
-      }
-    })
-
-    lineChart2.setOnMousePressed(new EventHandler[MouseEvent]() {
-      override def handle(event: MouseEvent): Unit = {
-        if (event.getClickCount == 2) {
-          lineChart2.setScaleX(1.0)
-          lineChart2.setScaleY(1.0)
-        }
-      }
-    })
-  }
+  val visualizationPane = new SharedAxisCharts
+  visualizationPane.addChart(lineChart1)
+  visualizationPane.addChart(lineChart2)
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
