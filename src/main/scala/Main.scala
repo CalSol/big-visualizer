@@ -10,8 +10,10 @@ import scalafx.scene.chart.{LineChart, NumberAxis, XYChart}
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
 import scalafx.scene.layout.{Priority, VBox}
 import scalafx.scene.layout.VBox.setVgrow
-import collection.mutable
 
+import java.io.File
+import collection.mutable
+import com.github.tototoshi.csv.CSVReader
 
 // TODO split into data model
 case class DataItem(name: String) {
@@ -55,8 +57,8 @@ class SharedAxisCharts extends VBox {
 
     val lastAxis = timeAxes.last
     timeAxes.foreach(timeAxis => {
-      timeAxis.setLowerBound(lastAxis.getLowerBound + event.getDeltaY)
-      timeAxis.setUpperBound(lastAxis.getUpperBound + event.getDeltaY)
+      timeAxis.setLowerBound(lastAxis.getLowerBound - event.getDeltaY)
+      timeAxis.setUpperBound(lastAxis.getUpperBound - event.getDeltaY)
     })
   }
 
@@ -100,12 +102,29 @@ object Main extends JFXApp {
     setVgrow(tree, Priority.Always)
   }
 
+  println("Open file")
+  val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
+  println("Map data")
+  val readData = reader.toStream.tail.flatMap { fields =>  // tail to discard header
+    (fields(0).toDoubleOption, fields(2).toDoubleOption) match {
+      case (Some(time), Some(data)) => Some((time, data))
+      case _ => None
+    }
+  }
+  println(s"read data: ${readData.length}")
+
+
   val rawData1 = (0 until 1024).map { i => (i, i + 64 * Math.random()) }
   val data1 = ObservableBuffer(rawData1 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
+//  println("Map fields to chart")
+//  val data1 = ObservableBuffer(readData map {case (x, y) => XYChart.Data[Number, Number](x, y)})
+  println("Create chart")
   val series1 = XYChart.Series[Number, Number]("test1", data1)
   val lineChart1 = LineChart(new NumberAxis(), new NumberAxis())
+  println("Add data")
   lineChart1.getData.add(series1)
   lineChart1.title = "TestChart1"
+  println("done")
 
   val rawData2 = (0 until 1024).map { i => (i, -i + 64 * Math.random()) }
   val data2 = ObservableBuffer(rawData2 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
