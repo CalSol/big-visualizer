@@ -9,6 +9,8 @@ idePackagePrefix := Some("bigvis")
 libraryDependencies ++= Seq(
   "org.scalafx" %% "scalafx" % "15.0.1-R21",
   "com.github.tototoshi" %% "scala-csv" % "1.3.8",
+
+  "org.scalatest" %% "scalatest" % "3.2.0" % "test",
 )
 
 // JavaFX binary detection, from http://www.scalafx.org/docs/quickstart/

@@ -26,14 +26,14 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
   // Adds the data (as points of (timestamp, data), Data must be ordered, but only within itself
   // (it can overlap with existing points in the tree)
   // Data must not be empty.
-  def appendAll(data: IterableOnce[(BTree.TimestampType, LeafType)])
+  def appendAll(data: IterableOnce[(BTree.TimestampType, LeafType)]) = ???
 
   // Returns all the leaf points as a seq
-  def toSeq: Seq[(BTree.TimestampType, LeafType)]
+  def toSeq: Seq[(BTree.TimestampType, LeafType)] = ???
 
   // Returns the maximum depth of the tree, excluding leaf entries
   // Expensive! This traverses the entire tree!
-  def maxDepth: Int
+  def maxDepth: Int = ???
 }
 
 // Internal data structure, base class for a tree node
@@ -57,16 +57,19 @@ class BTreeLeafNode[NodeType, LeafType](root: BTree[NodeType, LeafType],
                                         parent: Option[BTreeNode[NodeType, LeafType]])
     extends BTreeNode[NodeType, LeafType](root) {
   protected val leaves = mutable.ArrayBuffer[(BTree.TimestampType, LeafType)]()
-  protected var data: NodeType = root.aggregator.fromLeaves(Seq())  // intermediate node data
+  var data: NodeType = root.aggregator.fromLeaves(Seq())  // intermediate node data
 
   // Initialized with invalid values when empty
-  protected var minTime: BTree.TimestampType = Long.MaxValue
-  protected var maxTime: BTree.TimestampType = Long.MinValue
+  var minTime: BTree.TimestampType = Long.MaxValue
+  var maxTime: BTree.TimestampType = Long.MinValue
 
   def appendAll(data: Seq[(BTree.TimestampType, LeafType)]): Seq[(BTree.TimestampType, LeafType)] = {
     // Insert data until full
     // When full, split the node in the parent, recursively as needed, and delegate continued data adding
     require(data.nonEmpty)  // empty appends handled at BTree level
+    require(data.head._1 >= maxTime, "TODO: support insertions not at end")  // I'm a lazy duck
+
+    ???
   }
 
   def validate(): Boolean = {
@@ -81,16 +84,18 @@ class BTreeIntermediateNode[NodeType, LeafType](root: BTree[NodeType, LeafType],
                                                 parent: Option[BTreeNode[NodeType, LeafType]])
     extends BTreeNode[NodeType, LeafType](root) {
   protected val nodes = mutable.ArrayBuffer[BTreeNode[NodeType, LeafType]]()
-  protected var data: NodeType = root.aggregator.fromNodes(Seq())  // intermediate node data
+  var data: NodeType = root.aggregator.fromNodes(Seq())  // intermediate node data
 
   // Initialized with invalid values when empty
-  protected var minTime: BTree.TimestampType = Long.MaxValue
-  protected var maxTime: BTree.TimestampType = Long.MinValue
+  var minTime: BTree.TimestampType = Long.MaxValue
+  var maxTime: BTree.TimestampType = Long.MinValue
 
   def appendAll(data: Seq[(BTree.TimestampType, LeafType)]): Seq[(BTree.TimestampType, LeafType)] = {
     // Insert data until full
     // When full, split the node in the parent, recursively as needed
     require(data.nonEmpty)  // empty appends handled at BTree level
+
+    ???
   }
 
   def validate(): Boolean = {
