@@ -8,6 +8,6 @@ class BTreeTest extends AnyFlatSpec with Matchers {
   behavior of "BTree"
 
   it should "test" in {
-    
+
   }
 }
