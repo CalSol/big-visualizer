@@ -22,14 +22,35 @@ case class DataItem(name: String) {
   val dataProp = StringProperty("0")
 }
 
+object ChartUpdator {
+  type ChartXAxis = Number  // TODO dedup w/ SharedAxisCharts
+
+  def updateChart(chart: XYChart[ChartXAxis, Number], data: BTree[FloatAggregate, Float]): Unit = {
+    val xAxis = chart.getXAxis.asInstanceOf[javafx.scene.chart.NumberAxis]
+    val lower = xAxis.getLowerBound
+    val upper = xAxis.getUpperBound
+    val range = upper - lower
+    val widthPixels = chart.width.value
+
+    val nodes = data.getNodes(lower.toLong, upper.toLong, (range / widthPixels).toLong)
+  }
+}
+
 /**
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
  */
 class SharedAxisCharts extends VBox {
-  protected val timeAxes = mutable.ArrayBuffer[javafx.scene.chart.NumberAxis]()
+  type ChartXAxis = Number
+
+  case class ContainedChart(chart: XYChart[ChartXAxis, Number],
+                            timeAxis: javafx.scene.chart.NumberAxis,
+                            data: BTree[FloatAggregate, Float]
+                           )
+
+  protected val charts = mutable.ArrayBuffer[ContainedChart]()
 
   // Adds a chart to the end of this stack of charts, and sets the axis properties to make it do the right thing
-  def addChart(chart: XYChart[Number, Number]): Unit = {
+  def addChart(chart: XYChart[Number, Number], data: BTree[FloatAggregate, Float]): Unit = {
     chart.setLegendVisible(false)
 
     chart.getXAxis.setAnimated(false)
@@ -50,16 +71,21 @@ class SharedAxisCharts extends VBox {
 
     setVgrow(chart, Priority.Always)
     children.add(chart)
-    timeAxes.append(chart.getXAxis.asInstanceOf[javafx.scene.chart.NumberAxis])  // TODO other axes types?
+    charts.append(ContainedChart(
+      chart,
+      chart.getXAxis.asInstanceOf[javafx.scene.chart.NumberAxis],  // TODO other axes types?
+      data
+    ))
   }
 
   protected def onScroll(event: ScrollEvent): Unit = {
     event.consume()
 
-    val lastAxis = timeAxes.last
-    timeAxes.foreach(timeAxis => {
-      timeAxis.setLowerBound(lastAxis.getLowerBound - event.getDeltaY)
-      timeAxis.setUpperBound(lastAxis.getUpperBound - event.getDeltaY)
+    val lastAxis = charts.last.timeAxis
+    charts.foreach(chart => {
+      chart.timeAxis.setLowerBound(lastAxis.getLowerBound - event.getDeltaY)
+      chart.timeAxis.setUpperBound(lastAxis.getUpperBound - event.getDeltaY)
+      ChartUpdator.updateChart(chart.chart, chart.data)
     })
   }
 
@@ -139,8 +165,8 @@ object Main extends JFXApp {
   lineChart2.title = "TestChart2"
 
   val visualizationPane = new SharedAxisCharts
-  visualizationPane.addChart(lineChart1)
-  visualizationPane.addChart(lineChart2)
+  visualizationPane.addChart(lineChart1, batteriesTree)
+//  visualizationPane.addChart(lineChart2)
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"

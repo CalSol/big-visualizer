@@ -85,6 +85,9 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
     }
     traverse(root)
   }
+
+  def minTime: BTree.TimestampType = root.minTime
+  def maxTime: BTree.TimestampType = root.maxTime
 }
 
 // Internal data structure, base class for a tree node
@@ -115,10 +118,16 @@ class BTreeLeafNode[NodeType, LeafType](root: BTree[NodeType, LeafType])
   override def nodeData: NodeType = internalNodeData.get
 
   // Initialized with invalid values when empty
-  protected var internalMinTime: BTree.TimestampType = Long.MaxValue
-  override def minTime = internalMinTime
-  protected var internalMaxTime: BTree.TimestampType = Long.MinValue
-  override def maxTime = internalMaxTime
+  protected var internalMinTime = Long.MaxValue
+  override def minTime: BTree.TimestampType = {
+    require(leaves.nonEmpty)
+    internalMinTime
+  }
+  protected var internalMaxTime = Long.MinValue
+  override def maxTime: BTree.TimestampType = {
+    require(leaves.nonEmpty)
+    internalMaxTime
+  }
 
   def appendAll(data: Seq[(BTree.TimestampType, LeafType)]): Seq[(BTree.TimestampType, LeafType)] = {
     // Insert data until full
@@ -177,10 +186,16 @@ class BTreeIntermediateNode[NodeType, LeafType](root: BTree[NodeType, LeafType])
   override def nodeData: NodeType = internalNodeData.get
 
   // Initialized with invalid values when empty
-  protected var internalMinTime: BTree.TimestampType = Long.MaxValue
-  override def minTime = internalMinTime
-  protected var intermalMaxTime: BTree.TimestampType = Long.MinValue
-  override def maxTime = intermalMaxTime
+  protected var internalMinTime = Long.MaxValue
+  override def minTime: BTree.TimestampType = {
+    require(nodes.nonEmpty)
+    internalMinTime
+  }
+  protected var intermalMaxTime = Long.MinValue
+  override def maxTime: BTree.TimestampType = {
+    require(nodes.nonEmpty)
+    intermalMaxTime
+  }
 
   def appendAll(data: Seq[(BTree.TimestampType, LeafType)]): Seq[(BTree.TimestampType, LeafType)] = {
     // Insert data until full

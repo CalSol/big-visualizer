@@ -14,6 +14,8 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     val tree = new BTree(FloatAggregate.aggregator, 4)
     tree.appendAll(dataset)
     tree.toSeq should be(dataset)
+    tree.minTime should be(0)
+    tree.maxTime should be(3)
     tree.maxDepth should be(1)
   }
 
@@ -23,6 +25,8 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     val tree = new BTree(FloatAggregate.aggregator, 4)
     tree.appendAll(dataset)
     tree.toSeq should be(dataset)
+    tree.minTime should be(0)
+    tree.maxTime should be(4)
     tree.maxDepth should be(2)
   }
 
@@ -33,9 +37,13 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     val tree = new BTree(FloatAggregate.aggregator, 4)
     tree.appendAll(dataset)
     tree.toSeq should be(dataset)
+    tree.minTime should be(0)
+    tree.maxTime should be(9)
     tree.maxDepth should be(2)
 
     tree.appendAll(Seq((dataset.length, dataset.length)))
+    tree.minTime should be(0)
+    tree.maxTime should be(10)
     tree.maxDepth should be(3)
   }
 
@@ -46,9 +54,13 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     val tree = new BTree(FloatAggregate.aggregator, 4)
     tree.appendAll(dataset)
     tree.toSeq should be(dataset)
+    tree.minTime should be(0)
+    tree.maxTime should be(21)
     tree.maxDepth should be(3)
 
     tree.appendAll(Seq((dataset.length, dataset.length)))
+    tree.minTime should be(0)
+    tree.maxTime should be(22)
     tree.maxDepth should be(4)
   }
 
