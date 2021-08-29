@@ -65,6 +65,25 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
     }
     traverse(root)
   }
+
+  // Returns a list of nodes, from startTime (inclusive) to endTime (exclusive), where any intermediate nodes
+  // span at most minResolution in time
+  def getNodes(startTime: BTree.TimestampType, endTime: BTree.TimestampType,
+               minResolution: BTree.TimestampType): Seq[BTreeNode[NodeType, LeafType]] = {
+    def traverse(node: BTreeNode[NodeType, LeafType]): Seq[BTreeNode[NodeType, LeafType]] = {
+      if (node.maxTime < startTime || node.minTime >= endTime) {  // out of time bounds
+        Seq()
+      } else if ((node.maxTime - node.minTime) <= minResolution) {  // minimum resolution
+        Seq(node)
+      } else {
+        node match {
+          case node: BTreeIntermediateNode[NodeType, LeafType] => node.nodes.toSeq.flatMap(traverse)
+          case node: BTreeLeafNode[NodeType, LeafType] => Seq(node)
+        }
+      }
+    }
+    traverse(root)
+  }
 }
 
 // Internal data structure, base class for a tree node
