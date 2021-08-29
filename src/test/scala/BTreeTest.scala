@@ -43,4 +43,39 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.toSeq should be(dataset)
     tree.maxDepth should be(1)
   }
+
+  it should "push nodeSize + 1 items" in {
+    val dataset: Seq[(Long, Float)] = (0 until 5) map {i => (i, i)}
+
+    val tree = new BTree(FloatAggregate.aggregator, 4)
+    tree.appendAll(dataset)
+    tree.toSeq should be(dataset)
+    tree.maxDepth should be(2)
+  }
+
+  it should "push a full two-level tree worth of items" in {
+    // leaves would be 2, 2, 2, 4
+    val dataset: Seq[(Long, Float)] = (0 until 10) map {i => (i, i)}
+
+    val tree = new BTree(FloatAggregate.aggregator, 4)
+    tree.appendAll(dataset)
+    tree.toSeq should be(dataset)
+    tree.maxDepth should be(2)
+
+    tree.appendAll(Seq((100, 100)))
+    tree.maxDepth should be(3)
+  }
+
+  it should "push a full three-level tree worth of items" in {
+    // leaves would be 2 (2, 2), 2 (2, 2), 2 (2, 2), 4 (2, 2, 2, 4)
+    val dataset: Seq[(Long, Float)] = (0 until 22) map {i => (i, i)}
+
+    val tree = new BTree(FloatAggregate.aggregator, 4)
+    tree.appendAll(dataset)
+    tree.toSeq should be(dataset)
+    tree.maxDepth should be(3)
+
+    tree.appendAll(Seq((100, 100)))
+    tree.maxDepth should be(4)
+  }
 }

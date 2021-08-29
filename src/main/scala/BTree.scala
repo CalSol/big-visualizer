@@ -176,7 +176,7 @@ class BTreeIntermediateNode[NodeType, LeafType](root: BTree[NodeType, LeafType])
       val newLast = nodes.last.split()
       nodes.append(newLast)
 
-      remainingData = newLast.appendAll(data)
+      remainingData = newLast.appendAll(remainingData)
     }
 
     internalMinTime = nodes.head.minTime
