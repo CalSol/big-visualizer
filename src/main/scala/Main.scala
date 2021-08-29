@@ -1,5 +1,6 @@
 package bigvis
 
+import bigvis.btree.{BTree, FloatAggregate}
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -103,15 +104,19 @@ object Main extends JFXApp {
   }
 
   println("Open file")
+  val batteriesTree = new BTree(FloatAggregate.aggregator, 32)
   val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
   println("Map data")
-  val readData = reader.toStream.tail.flatMap { fields =>  // tail to discard header
-    (fields(0).toDoubleOption, fields(2).toDoubleOption) match {
-      case (Some(time), Some(data)) => Some((time, data))
+  val batteriesData = reader.toStream.tail.flatMap { fields =>  // tail to discard header
+    (fields(0).toFloatOption, fields(2).toFloatOption) match {
+      case (Some(time), Some(data)) => Some(((time * 1000).toLong, data))
       case _ => None
     }
   }
-  println(s"read data: ${readData.length}")
+  println(s"batteries data: ${batteriesData.length}")
+
+  batteriesTree.appendAll(batteriesData)
+  println(s"tree insert, h=${batteriesTree.maxDepth}")
 
 
   val rawData1 = (0 until 1024).map { i => (i, i + 64 * Math.random()) }

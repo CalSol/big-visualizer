@@ -1,4 +1,5 @@
 package bigvis
+package btree
 
 import scala.collection.mutable
 
