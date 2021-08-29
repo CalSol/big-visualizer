@@ -69,6 +69,7 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
 
   // Returns a list of nodes, from startTime (inclusive) to endTime (exclusive), where any intermediate nodes
   // span at most minResolution in time
+  // TODO cannot distinguish between a single leaf and a node containing leaf elements
   def getNodes(startTime: BTree.TimestampType, endTime: BTree.TimestampType,
                minResolution: BTree.TimestampType): Seq[BTreeNode[NodeType, LeafType]] = {
     def traverse(node: BTreeNode[NodeType, LeafType]): Seq[BTreeNode[NodeType, LeafType]] = {
@@ -90,8 +91,12 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
   def maxTime: BTree.TimestampType = root.maxTime
 }
 
+sealed abstract class BTreeData[NodeType, LeafType]
+
+case class BTreeLeaf[NodeType, LeafType](time: BTree.TimestampType, value: LeafType) extends BTreeData
+
 // Internal data structure, base class for a tree node
-abstract class BTreeNode[NodeType, LeafType](root: BTree[NodeType, LeafType]) {
+sealed abstract class BTreeNode[NodeType, LeafType](root: BTree[NodeType, LeafType]) {
   def minTime: BTree.TimestampType  // returns the lowest timestamp in this node
   def maxTime: BTree.TimestampType  // returns the highest timestamp in this node
   def nodeData: NodeType  // return the aggregate data

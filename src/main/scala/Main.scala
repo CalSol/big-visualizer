@@ -1,6 +1,6 @@
 package bigvis
 
-import bigvis.btree.{BTree, FloatAggregate}
+import bigvis.btree.{BTree, BTreeIntermediateNode, BTreeLeafNode, FloatAggregate}
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -33,6 +33,20 @@ object ChartUpdator {
     val widthPixels = chart.width.value
 
     val nodes = data.getNodes(lower.toLong, upper.toLong, (range / widthPixels).toLong)
+
+    println(s"Update: $lower -> $upper (${nodes.length} nodes)")
+
+    val dataBuffer = ObservableBuffer(nodes flatMap {
+      case node: BTreeIntermediateNode[FloatAggregate, Float] => Seq(
+        XYChart.Data[Number, Number]((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
+      )
+      case node: BTreeLeafNode[FloatAggregate, Float] => node.leaves.map { case (time, value) =>
+        XYChart.Data[Number, Number](time, value)
+      }
+
+    })
+    val series = XYChart.Series[Number, Number]("test2", dataBuffer)
+    chart.setData(ObservableBuffer(series))
   }
 }
 
@@ -82,15 +96,45 @@ class SharedAxisCharts extends VBox {
     event.consume()
 
     val lastAxis = charts.last.timeAxis
+
+    val (newLower, newUpper) = if (event.isShiftDown) {  // shift to zoom
+      // TODO shift to zoom on cursor location
+      val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+      val range = lastAxis.getUpperBound - lastAxis.getLowerBound
+      val zoomFactor = Math.pow(1.01, increment)
+      println(s"Zoom: $zoomFactor (${increment})")
+      val mid = (lastAxis.getLowerBound + lastAxis.getUpperBound) / 2
+      (mid - (range * zoomFactor / 2), mid + (range * zoomFactor / 2))
+    } else {  // normal scroll, left/right
+      val increment = -event.getDeltaY
+      val range = lastAxis.getUpperBound - lastAxis.getLowerBound
+      val shift = (range / 256) * increment
+      println(s"Increment: $shift (${increment})")
+      (lastAxis.getLowerBound + shift, lastAxis.getUpperBound + shift)
+    }
+
     charts.foreach(chart => {
-      chart.timeAxis.setLowerBound(lastAxis.getLowerBound - event.getDeltaY)
-      chart.timeAxis.setUpperBound(lastAxis.getUpperBound - event.getDeltaY)
+      chart.timeAxis.setLowerBound(newLower)
+      chart.timeAxis.setUpperBound(newUpper)
       ChartUpdator.updateChart(chart.chart, chart.data)
     })
   }
 
   protected def onMouse(event: MouseEvent): Unit = {
 
+  }
+
+  def zoomMax(): Unit = {
+    val minTime = charts.map(_.data.minTime).min
+    val maxTime = charts.map(_.data.maxTime).max
+
+    println(s"Zoom max: $minTime -> $maxTime")
+
+    charts.foreach(chart => {
+      chart.timeAxis.setLowerBound(minTime)
+      chart.timeAxis.setUpperBound(maxTime)
+      ChartUpdator.updateChart(chart.chart, chart.data)
+    })
   }
 }
 
@@ -130,7 +174,7 @@ object Main extends JFXApp {
   }
 
   println("Open file")
-  val batteriesTree = new BTree(FloatAggregate.aggregator, 32)
+  val batteriesTree = new BTree(FloatAggregate.aggregator, 16)
   val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
   println("Map data")
   val batteriesData = reader.toStream.tail.flatMap { fields =>  // tail to discard header
@@ -167,6 +211,8 @@ object Main extends JFXApp {
   val visualizationPane = new SharedAxisCharts
   visualizationPane.addChart(lineChart1, batteriesTree)
 //  visualizationPane.addChart(lineChart2)
+
+  visualizationPane.zoomMax()
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
