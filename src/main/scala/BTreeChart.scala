@@ -35,38 +35,45 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       gc.fillText(s"${xUpper.value}", width - 100, height)  // TODO anchor right
 
       val range = xUpper.value - xLower.value
-      val nodes = data.getData(xLower.value, xUpper.value, (range / width).toLong)
+      val (nodeTime, nodes) = timeExec {
+        data.getData(xLower.value, xUpper.value, (range / width).toLong)
+      }
 
       // filter nodes into break-able sections
-      val sections = ChunkSeq(nodes, xLower.value, (prevTime: Long, elem: BTreeData[FloatAggregate, Float]) => {
-        elem match {
-          case node: BTreeNode[FloatAggregate, Float] =>
-            (node.maxTime, node.minTime > prevTime + timeBreak)
-          case node: BTreeLeaf[FloatAggregate, Float] =>  // TODO return individual data points
-            (node.leaves.head._1, node.leaves.head._1 > prevTime + timeBreak)
-        }
-      })
+      val (sectionTime, sections) = timeExec {
+        ChunkSeq(nodes, xLower.value, (prevTime: Long, elem: BTreeData[FloatAggregate, Float]) => {
+          elem match {
+            case node: BTreeNode[FloatAggregate, Float] =>
+              (node.maxTime, node.minTime > prevTime + timeBreak)
+            case node: BTreeLeaf[FloatAggregate, Float] => // TODO return individual data points
+              (node.leaves.head._1, node.leaves.head._1 > prevTime + timeBreak)
+          }
+        })
+      }
 
       val xBottom = xLower.value
       val xScale = width / (xUpper.value - xLower.value)
       val yTop = yUpper.value
       val yScale = height / (yUpper.value - yLower.value)
 
-      sections.foreach { section =>
-        val sectionPoints = section.flatMap {
-          case node: BTreeNode[FloatAggregate, Float] =>
-            Seq(((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count))
-          case node: BTreeLeaf[FloatAggregate, Float] =>
-            node.leaves
-        }
+      val renderTime = timeExec {
+        sections.foreach { section =>
+          val sectionPoints = section.flatMap {
+            case node: BTreeNode[FloatAggregate, Float] =>
+              Seq(((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count))
+            case node: BTreeLeaf[FloatAggregate, Float] =>
+              node.leaves
+          }
 
-        gc.strokePolyline(
-          sectionPoints.map(point => (point._1 - xBottom) * xScale).toArray,
-          sectionPoints.map(point => (yTop - point._2) * yScale).toArray,
-          sectionPoints.length)
+          gc.strokePolyline(
+            sectionPoints.map(point => (point._1 - xBottom) * xScale).toArray,
+            sectionPoints.map(point => (yTop - point._2) * yScale).toArray,
+            sectionPoints.length)
+        }
       }
 
       gc.fillText(s"${nodes.length} nodes, ${sections.length} sections", 0, 20)
+      gc.fillText(s"${nodeTime * 1000} ms nodes, ${sectionTime * 1000} ms sections, ${renderTime * 1000} ms render", 0, 30)
     }
   }
 
