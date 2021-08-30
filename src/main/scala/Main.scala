@@ -178,7 +178,7 @@ object Main extends JFXApp {
   val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
   println("Map data")
   val batteriesData = reader.toStream.tail.flatMap { fields =>  // tail to discard header
-    (fields(0).toFloatOption, fields(2).toFloatOption) match {
+    (fields(0).toDoubleOption, fields(2).toFloatOption) match {  // we actually need the double resolution for timestamp
       case (Some(time), Some(data)) => Some(((time * 1000).toLong, data))
       case _ => None
     }
