@@ -15,7 +15,7 @@ import scalafx.scene.layout.VBox.setVgrow
 import java.io.File
 import collection.mutable
 import com.github.tototoshi.csv.CSVReader
-import scalafx.scene.canvas.Canvas
+
 
 // TODO split into data model
 case class DataItem(name: String) {
