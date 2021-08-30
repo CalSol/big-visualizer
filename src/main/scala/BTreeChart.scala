@@ -1,42 +1,9 @@
 package bigvis
 
-import bigvis.btree.{BTree, FloatAggregate}
+import bigvis.btree.{BTree, BTreeData, BTreeLeaf, BTreeNode, FloatAggregate}
 import javafx.scene.canvas.Canvas
 import javafx.scene.layout.StackPane
 import scalafx.beans.property.{DoubleProperty, LongProperty}
-
-import scala.collection.mutable
-
-
-object ChunkSeq {
-  // Splits arrays based on some logic applied for each pair
-  def apply[ElemType, DataType](seq: Seq[ElemType], initVal: DataType,
-                                fn: (ElemType, ElemType, DataType) => (DataType, Boolean)): Seq[Seq[ElemType]] = {
-    val outputBuilder = mutable.ArrayBuffer[Seq[ElemType]]()
-    val elemBuilder = mutable.ArrayBuffer[ElemType]()
-    if (seq.isEmpty) {
-      Seq()
-    } else {
-      var prevElem = seq.head
-      var prevData = initVal
-      elemBuilder.append(prevElem)
-      seq.tail.foreach { elem =>
-        val (newData, split) = fn(prevElem, elem, prevData)
-        if (split) {
-          outputBuilder.append(elemBuilder.toSeq)
-          elemBuilder.clear()
-          elemBuilder.append(elem)
-        } else {
-          elemBuilder.append(elem)
-        }
-        prevElem = elem
-        prevData = newData
-      }
-      outputBuilder.append(elemBuilder.toSeq)
-    }
-    outputBuilder.toSeq
-  }
-}
 
 
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
@@ -69,11 +36,37 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
       val range = xUpper.value - xLower.value
       val nodes = data.getData(xLower.value, xUpper.value, (range / width).toLong)
-      gc.fillText(s"${nodes.length} nodes", 0, 20)
 
       // filter nodes into break-able sections
-//      val sections =
-//      gc.strokePolyline()
+      val sections = ChunkSeq(nodes, xLower.value, (prevTime: Long, elem: BTreeData[FloatAggregate, Float]) => {
+        elem match {
+          case node: BTreeNode[FloatAggregate, Float] =>
+            (node.maxTime, node.minTime > prevTime + timeBreak)
+          case node: BTreeLeaf[FloatAggregate, Float] =>  // TODO return individual data points
+            (node.leaves.head._1, node.leaves.head._1 > prevTime + timeBreak)
+        }
+      })
+
+      val xBottom = xLower.value
+      val xScale = width / (xUpper.value - xLower.value)
+      val yTop = yUpper.value
+      val yScale = height / (yUpper.value - yLower.value)
+
+      sections.foreach { section =>
+        val sectionPoints = section.flatMap {
+          case node: BTreeNode[FloatAggregate, Float] =>
+            Seq(((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count))
+          case node: BTreeLeaf[FloatAggregate, Float] =>
+            node.leaves
+        }
+
+        gc.strokePolyline(
+          sectionPoints.map(point => (point._1 - xBottom) * xScale).toArray,
+          sectionPoints.map(point => (yTop - point._2) * yScale).toArray,
+          sectionPoints.length)
+      }
+
+      gc.fillText(s"${nodes.length} nodes, ${sections.length} sections", 0, 20)
     }
   }
 
