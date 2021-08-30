@@ -79,7 +79,9 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
       } else {
         node match {
           case node: BTreeIntermediateNode[NodeType, LeafType] => node.nodes.toSeq.flatMap(traverse)
-          case node: BTreeLeafNode[NodeType, LeafType] => Seq(new BTreeLeaf(node))
+          case node: BTreeLeafNode[NodeType, LeafType] => node.leaves.toSeq.map {
+            new BTreeLeaf[NodeType, LeafType](_)
+          }
         }
       }
     }
@@ -94,9 +96,8 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
 
 sealed abstract class BTreeData[NodeType, LeafType]
 
-class BTreeLeaf[NodeType, LeafType](node: BTreeLeafNode[NodeType, LeafType])
+class BTreeLeaf[NodeType, LeafType](val point: (BTree.TimestampType, LeafType))
     extends BTreeData[NodeType, LeafType] {
-  def leaves: Seq[(BTree.TimestampType, LeafType)] = node.leaves.toSeq
 }
 
 // Internal data structure, base class for a tree node

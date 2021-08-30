@@ -23,33 +23,6 @@ case class DataItem(name: String) {
   val dataProp = StringProperty("0")
 }
 
-object ChartUpdator {
-  type ChartXAxis = Number  // TODO dedup w/ SharedAxisCharts
-
-  def updateChart(chart: XYChart[ChartXAxis, Number], data: BTree[FloatAggregate, Float]): Unit = {
-    val xAxis = chart.getXAxis.asInstanceOf[javafx.scene.chart.NumberAxis]
-    val lower = xAxis.getLowerBound
-    val upper = xAxis.getUpperBound
-    val range = upper - lower
-    val widthPixels = chart.width.value
-
-    val nodes = data.getData(lower.toLong, upper.toLong, (range / widthPixels).toLong)
-
-    println(s"Update: $lower -> $upper (${nodes.length} nodes)")
-
-    val dataBuffer = ObservableBuffer(nodes flatMap {
-      case node: BTreeNode[FloatAggregate, Float] => Seq(
-        XYChart.Data[Number, Number]((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
-      )
-      case node: BTreeLeaf[FloatAggregate, Float] => node.leaves.map { case (time, value) =>
-        XYChart.Data[Number, Number](time, value)
-      }
-
-    })
-    val series = XYChart.Series[Number, Number]("test2", dataBuffer)
-    chart.setData(ObservableBuffer(series))
-  }
-}
 
 /**
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
@@ -115,7 +88,7 @@ class SharedAxisCharts extends VBox {
     charts.foreach(chart => {
       chart.timeAxis.setLowerBound(newLower)
       chart.timeAxis.setUpperBound(newUpper)
-      ChartUpdator.updateChart(chart.chart, chart.data)
+//      ChartUpdator.updateChart(chart.chart, chart.data)
     })
   }
 
@@ -132,7 +105,7 @@ class SharedAxisCharts extends VBox {
     charts.foreach(chart => {
       chart.timeAxis.setLowerBound(minTime)
       chart.timeAxis.setUpperBound(maxTime)
-      ChartUpdator.updateChart(chart.chart, chart.data)
+//      ChartUpdator.updateChart(chart.chart, chart.data)
     })
   }
 }

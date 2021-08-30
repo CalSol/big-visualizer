@@ -46,7 +46,7 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
             case node: BTreeNode[FloatAggregate, Float] =>
               (node.maxTime, node.minTime > prevTime + timeBreak)
             case node: BTreeLeaf[FloatAggregate, Float] => // TODO return individual data points
-              (node.leaves.head._1, node.leaves.head._1 > prevTime + timeBreak)
+              (node.point._1, node.point._1 > prevTime + timeBreak)
           }
         })
       }
@@ -58,11 +58,11 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
       val renderTime = timeExec {
         sections.foreach { section =>
-          val sectionPoints = section.flatMap {
+          val sectionPoints = section.map {
             case node: BTreeNode[FloatAggregate, Float] =>
-              Seq(((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count))
+              ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
             case node: BTreeLeaf[FloatAggregate, Float] =>
-              node.leaves
+              node.point
           }
 
           gc.strokePolyline(

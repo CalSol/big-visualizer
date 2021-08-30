@@ -100,7 +100,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
 
   it should "return getNodes mixing leaf and intermediate notes" in {
     val nodes = datasetTree.getData(0, 111, 50)
-    nodes.length should be(3)
+    nodes.length should be(4)
     val node0 = nodes(0).asInstanceOf[BTreeNode[FloatAggregate, Float]]
     node0.minTime should be(0)
     node0.maxTime should be(1)
@@ -108,7 +108,25 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     node0.nodeData.sum should be(0 + 1)
 
     val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
-    node1.leaves should be(Seq((2, 2), (100, 3)))
+    node1.point should be((2, 2))
+    val node2 = nodes(2).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node2.point should be((100, 3))
+
+    val node3 = nodes(3).asInstanceOf[BTreeNode[FloatAggregate, Float]]
+    node3.minTime should be(101)
+    node3.maxTime should be(124)
+    node3.nodeData.count should be(10)
+    node3.nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
+  }
+
+  it should "return getNodes filtering by time, cutting off the start" in {
+    val nodes = datasetTree.getData(3, 102, 50)
+    nodes.length should be(3)
+
+    val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node0.point should be((2, 2))
+    val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node1.point should be((100, 3))
 
     val node2 = nodes(2).asInstanceOf[BTreeNode[FloatAggregate, Float]]
     node2.minTime should be(101)
@@ -117,23 +135,9 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     node2.nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
   }
 
-  it should "return getNodes filtering by time, cutting off the start" in {
-    val nodes = datasetTree.getData(3, 102, 50)
-    nodes.length should be(2)
-
-    val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
-    node0.leaves should be(Seq((2, 2), (100, 3)))
-
-    val node1 = nodes(1).asInstanceOf[BTreeNode[FloatAggregate, Float]]
-    node1.minTime should be(101)
-    node1.maxTime should be(124)
-    node1.nodeData.count should be(10)
-    node1.nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
-  }
-
   it should "return getNodes filtering by time, cutting off the end" in {
     val nodes = datasetTree.getData(0, 101, 50)
-    nodes.length should be(2)
+    nodes.length should be(3)
 
     val node0 = nodes(0).asInstanceOf[BTreeNode[FloatAggregate, Float]]
     node0.minTime should be(0)
@@ -142,14 +146,18 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     node0.nodeData.sum should be(0 + 1)
 
     val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
-    node1.leaves should be(Seq((2, 2), (100, 3)))
+    node1.point should be((2, 2))
+    val node2 = nodes(2).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node2.point should be((100, 3))
   }
 
   it should "return getNodes filtering by time, cutting off both start and end" in {
     val nodes = datasetTree.getData(3, 101, 50)
-    nodes.length should be(1)
+    nodes.length should be(2)
 
     val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
-    node0.leaves should be(Seq((2, 2), (100, 3)))
+    node0.point should be((2, 2))
+    val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node1.point should be((100, 3))
   }
 }
