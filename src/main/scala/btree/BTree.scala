@@ -67,12 +67,11 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
     traverse(root)
   }
 
-  // Returns a list of nodes, from startTime (inclusive) to endTime (exclusive), where any intermediate nodes
-  // span at most minResolution in time
-  // TODO cannot distinguish between a single leaf and a node containing leaf elements
-  def getNodes(startTime: BTree.TimestampType, endTime: BTree.TimestampType,
-               minResolution: BTree.TimestampType): Seq[BTreeNode[NodeType, LeafType]] = {
-    def traverse(node: BTreeNode[NodeType, LeafType]): Seq[BTreeNode[NodeType, LeafType]] = {
+  // Returns a list of nodes (or leaves), from startTime (inclusive) to endTime (exclusive),
+  // where any intermediate nodes span at most minResolution in time
+  def getData(startTime: BTree.TimestampType, endTime: BTree.TimestampType,
+               minResolution: BTree.TimestampType): Seq[BTreeData[NodeType, LeafType]] = {
+    def traverse(node: BTreeNode[NodeType, LeafType]): Seq[BTreeData[NodeType, LeafType]] = {
       if (node.maxTime < startTime || node.minTime >= endTime) {  // out of time bounds
         Seq()
       } else if ((node.maxTime - node.minTime) <= minResolution) {  // minimum resolution
@@ -80,7 +79,7 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
       } else {
         node match {
           case node: BTreeIntermediateNode[NodeType, LeafType] => node.nodes.toSeq.flatMap(traverse)
-          case node: BTreeLeafNode[NodeType, LeafType] => Seq(node)
+          case node: BTreeLeafNode[NodeType, LeafType] => Seq(new BTreeLeaf(node))
         }
       }
     }
@@ -93,10 +92,14 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
 
 sealed abstract class BTreeData[NodeType, LeafType]
 
-case class BTreeLeaf[NodeType, LeafType](time: BTree.TimestampType, value: LeafType) extends BTreeData
+class BTreeLeaf[NodeType, LeafType](node: BTreeLeafNode[NodeType, LeafType])
+    extends BTreeData[NodeType, LeafType] {
+  def leaves: Seq[(BTree.TimestampType, LeafType)] = node.leaves.toSeq
+}
 
 // Internal data structure, base class for a tree node
-sealed abstract class BTreeNode[NodeType, LeafType](root: BTree[NodeType, LeafType]) {
+sealed abstract class BTreeNode[NodeType, LeafType](root: BTree[NodeType, LeafType])
+    extends BTreeData[NodeType, LeafType] {
   def minTime: BTree.TimestampType  // returns the lowest timestamp in this node
   def maxTime: BTree.TimestampType  // returns the highest timestamp in this node
   def nodeData: NodeType  // return the aggregate data

@@ -1,6 +1,6 @@
 package bigvis
 
-import bigvis.btree.{BTree, BTreeIntermediateNode, BTreeLeafNode, FloatAggregate}
+import bigvis.btree.{BTree, BTreeIntermediateNode, BTreeLeaf, BTreeLeafNode, BTreeNode, FloatAggregate}
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -32,15 +32,15 @@ object ChartUpdator {
     val range = upper - lower
     val widthPixels = chart.width.value
 
-    val nodes = data.getNodes(lower.toLong, upper.toLong, (range / widthPixels).toLong)
+    val nodes = data.getData(lower.toLong, upper.toLong, (range / widthPixels).toLong)
 
     println(s"Update: $lower -> $upper (${nodes.length} nodes)")
 
     val dataBuffer = ObservableBuffer(nodes flatMap {
-      case node: BTreeIntermediateNode[FloatAggregate, Float] => Seq(
+      case node: BTreeNode[FloatAggregate, Float] => Seq(
         XYChart.Data[Number, Number]((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
       )
-      case node: BTreeLeafNode[FloatAggregate, Float] => node.leaves.map { case (time, value) =>
+      case node: BTreeLeaf[FloatAggregate, Float] => node.leaves.map { case (time, value) =>
         XYChart.Data[Number, Number](time, value)
       }
 

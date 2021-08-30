@@ -87,8 +87,8 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     // the second top-level node is returned as an aggregate
     (101, 4), (102, 5),
     (103, 6), (104, 7),
-    (105, 8), (106, 9),
-    (107, 10), (108, 11), (109, 12), (110, 13)
+    (105, 8), (120, 9),
+    (121, 10), (122, 11), (123, 12), (124, 13)
   )
   val datasetTree = new BTree(FloatAggregate.aggregator, 4)
   datasetTree.appendAll(dataset)
@@ -99,61 +99,57 @@ class BTreeTest extends AnyFlatSpec with Matchers {
   }
 
   it should "return getNodes mixing leaf and intermediate notes" in {
-    val nodes = datasetTree.getNodes(0, 111, 10)
+    val nodes = datasetTree.getData(0, 111, 50)
     nodes.length should be(3)
-    nodes(0).minTime should be(0)
-    nodes(0).maxTime should be(1)
-    nodes(0).nodeData.count should be(2)
-    nodes(0).nodeData.sum should be(0 + 1)
+    val node0 = nodes(0).asInstanceOf[BTreeNode[FloatAggregate, Float]]
+    node0.minTime should be(0)
+    node0.maxTime should be(1)
+    node0.nodeData.count should be(2)
+    node0.nodeData.sum should be(0 + 1)
 
-    nodes(1).minTime should be(2)
-    nodes(1).maxTime should be(100)
-    nodes(1).nodeData.count should be(2)
-    nodes(1).nodeData.sum should be(2 + 3)
+    val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node1.leaves should be(Seq((2, 2), (100, 3)))
 
-    nodes(2).minTime should be(101)
-    nodes(2).maxTime should be(110)
-    nodes(2).nodeData.count should be(10)
-    nodes(2).nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
+    val node2 = nodes(2).asInstanceOf[BTreeNode[FloatAggregate, Float]]
+    node2.minTime should be(101)
+    node2.maxTime should be(124)
+    node2.nodeData.count should be(10)
+    node2.nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
   }
 
   it should "return getNodes filtering by time, cutting off the start" in {
-    val nodes = datasetTree.getNodes(3, 102, 10)
+    val nodes = datasetTree.getData(3, 102, 50)
     nodes.length should be(2)
 
-    nodes(0).minTime should be(2)
-    nodes(0).maxTime should be(100)
-    nodes(0).nodeData.count should be(2)
-    nodes(0).nodeData.sum should be(2 + 3)
+    val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node0.leaves should be(Seq((2, 2), (100, 3)))
 
-    nodes(1).minTime should be(101)
-    nodes(1).maxTime should be(110)
-    nodes(1).nodeData.count should be(10)
-    nodes(1).nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
+    val node1 = nodes(1).asInstanceOf[BTreeNode[FloatAggregate, Float]]
+    node1.minTime should be(101)
+    node1.maxTime should be(124)
+    node1.nodeData.count should be(10)
+    node1.nodeData.sum should be(4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13)
   }
 
   it should "return getNodes filtering by time, cutting off the end" in {
-    val nodes = datasetTree.getNodes(0, 101, 10)
+    val nodes = datasetTree.getData(0, 101, 50)
     nodes.length should be(2)
 
-    nodes(0).minTime should be(0)
-    nodes(0).maxTime should be(1)
-    nodes(0).nodeData.count should be(2)
-    nodes(0).nodeData.sum should be(0 + 1)
+    val node0 = nodes(0).asInstanceOf[BTreeNode[FloatAggregate, Float]]
+    node0.minTime should be(0)
+    node0.maxTime should be(1)
+    node0.nodeData.count should be(2)
+    node0.nodeData.sum should be(0 + 1)
 
-    nodes(1).minTime should be(2)
-    nodes(1).maxTime should be(100)
-    nodes(1).nodeData.count should be(2)
-    nodes(1).nodeData.sum should be(2 + 3)
+    val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node1.leaves should be(Seq((2, 2), (100, 3)))
   }
 
   it should "return getNodes filtering by time, cutting off both start and end" in {
-    val nodes = datasetTree.getNodes(3, 101, 10)
+    val nodes = datasetTree.getData(3, 101, 50)
     nodes.length should be(1)
 
-    nodes(0).minTime should be(2)
-    nodes(0).maxTime should be(100)
-    nodes(0).nodeData.count should be(2)
-    nodes(0).nodeData.sum should be(2 + 3)
+    val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregate, Float]]
+    node0.leaves should be(Seq((2, 2), (100, 3)))
   }
 }
