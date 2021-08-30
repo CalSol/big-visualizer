@@ -102,14 +102,12 @@ class SharedAxisCharts extends VBox {
       val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
       val range = lastAxis.getUpperBound - lastAxis.getLowerBound
       val zoomFactor = Math.pow(1.01, increment)
-      println(s"Zoom: $zoomFactor (${increment})")
       val mid = (lastAxis.getLowerBound + lastAxis.getUpperBound) / 2
       (mid - (range * zoomFactor / 2), mid + (range * zoomFactor / 2))
     } else {  // normal scroll, left/right
       val increment = -event.getDeltaY
       val range = lastAxis.getUpperBound - lastAxis.getLowerBound
       val shift = (range / 256) * increment
-      println(s"Increment: $shift (${increment})")
       (lastAxis.getLowerBound + shift, lastAxis.getUpperBound + shift)
     }
 
