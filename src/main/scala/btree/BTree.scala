@@ -86,6 +86,8 @@ class BTree[NodeType, LeafType](val aggregator: BTreeAggregator[NodeType, LeafTy
     traverse(root)
   }
 
+  def rootData: NodeType = root.nodeData
+
   def minTime: BTree.TimestampType = root.minTime
   def maxTime: BTree.TimestampType = root.maxTime
 }

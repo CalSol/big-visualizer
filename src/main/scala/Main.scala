@@ -9,12 +9,13 @@ import scalafx.collections.ObservableBuffer
 import scalafx.scene.Scene
 import scalafx.scene.chart.{LineChart, NumberAxis, XYChart}
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
-import scalafx.scene.layout.{Priority, VBox}
+import scalafx.scene.layout.{Priority, StackPane, VBox}
 import scalafx.scene.layout.VBox.setVgrow
 
 import java.io.File
 import collection.mutable
 import com.github.tototoshi.csv.CSVReader
+import scalafx.scene.canvas.Canvas
 
 // TODO split into data model
 case class DataItem(name: String) {
@@ -186,31 +187,14 @@ object Main extends JFXApp {
   batteriesTree.appendAll(batteriesData)
   println(s"tree insert, h=${batteriesTree.maxDepth}")
 
+  // TODO the wrapping doesn't belong here
+  val visualizationPane = new StackPane(delegate=new BTreeChart(batteriesTree, 1000))
 
-  val rawData1 = (0 until 1024).map { i => (i, i + 64 * Math.random()) }
-  val data1 = ObservableBuffer(rawData1 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
-//  println("Map fields to chart")
-//  val data1 = ObservableBuffer(readData map {case (x, y) => XYChart.Data[Number, Number](x, y)})
-  println("Create chart")
-  val series1 = XYChart.Series[Number, Number]("test1", data1)
-  val lineChart1 = LineChart(new NumberAxis(), new NumberAxis())
-  println("Add data")
-  lineChart1.getData.add(series1)
-  lineChart1.title = "TestChart1"
-  println("done")
-
-  val rawData2 = (0 until 1024).map { i => (i, -i + 64 * Math.random()) }
-  val data2 = ObservableBuffer(rawData2 map {case (x, y) => XYChart.Data[Number, Number](x, y)})
-  val series2 = XYChart.Series[Number, Number]("test2", data2)
-  val lineChart2 = LineChart(new NumberAxis(), new NumberAxis())
-  lineChart2.getData.add(series2)
-  lineChart2.title = "TestChart2"
-
-  val visualizationPane = new SharedAxisCharts
-  visualizationPane.addChart(lineChart1, batteriesTree)
+//  val visualizationPane = new SharedAxisCharts
+//  visualizationPane.addChart(lineChart1, batteriesTree)
 //  visualizationPane.addChart(lineChart2)
 
-  visualizationPane.zoomMax()
+//  visualizationPane.zoomMax()
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
@@ -218,6 +202,7 @@ object Main extends JFXApp {
       val splitPane = new SplitPane {
         items ++= Seq(navigationPane, visualizationPane)
         SplitPane.setResizableWithParent(navigationPane, false)
+        SplitPane.setResizableWithParent(visualizationPane, false)
       }
       splitPane.setDividerPositions(0.25)
       root = splitPane
