@@ -28,28 +28,12 @@ case class DataItem(name: String) {
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
  */
 class SharedAxisCharts extends VBox {
-  type ChartXAxis = Number
-
-  case class ContainedChart(chart: XYChart[ChartXAxis, Number],
-                            timeAxis: javafx.scene.chart.NumberAxis,
-                            data: BTree[FloatAggregate, Float]
-                           )
+  case class ContainedChart(chart: BTreeChart)
 
   protected val charts = mutable.ArrayBuffer[ContainedChart]()
 
   // Adds a chart to the end of this stack of charts, and sets the axis properties to make it do the right thing
-  def addChart(chart: XYChart[Number, Number], data: BTree[FloatAggregate, Float]): Unit = {
-    chart.setLegendVisible(false)
-
-    chart.getXAxis.setAnimated(false)
-    chart.getXAxis.setAutoRanging(false)
-
-    chart.getXAxis.setVisible(false)
-    chart.getXAxis.setTickMarkVisible(false)
-    chart.getXAxis.setTickLabelsVisible(false)
-
-    chart.getYAxis.setTickLabelRotation(270)  // to keep the chart size the same so stacked charts are consistent
-
+  def addChart(chart: StackPane): Unit = {
     chart.setOnScroll((t: ScrollEvent) => {
       onScroll(t)
     })
@@ -60,35 +44,33 @@ class SharedAxisCharts extends VBox {
     setVgrow(chart, Priority.Always)
     children.add(chart)
     charts.append(ContainedChart(
-      chart,
-      chart.getXAxis.asInstanceOf[javafx.scene.chart.NumberAxis],  // TODO other axes types?
-      data
+      chart.delegate.asInstanceOf[BTreeChart],
     ))
   }
 
   protected def onScroll(event: ScrollEvent): Unit = {
     event.consume()
 
-    val lastAxis = charts.last.timeAxis
+    val lastChart = charts.last.chart
 
     val (newLower, newUpper) = if (event.isShiftDown) {  // shift to zoom
       // TODO shift to zoom on cursor location
       val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
-      val range = lastAxis.getUpperBound - lastAxis.getLowerBound
+
+      val range = lastChart.xUpper.value - lastChart.xLower.value
       val zoomFactor = Math.pow(1.01, increment)
-      val mid = (lastAxis.getLowerBound + lastAxis.getUpperBound) / 2
-      (mid - (range * zoomFactor / 2), mid + (range * zoomFactor / 2))
+      val mid = (lastChart.xLower.value + lastChart.xUpper.value) / 2
+      (mid - (range * zoomFactor / 2).toLong, mid + (range * zoomFactor / 2).toLong)
     } else {  // normal scroll, left/right
       val increment = -event.getDeltaY
-      val range = lastAxis.getUpperBound - lastAxis.getLowerBound
+      val range = lastChart.xUpper.value - lastChart.xLower.value
       val shift = (range / 256) * increment
-      (lastAxis.getLowerBound + shift, lastAxis.getUpperBound + shift)
+      (lastChart.xLower.value + shift.toLong, lastChart.xUpper.value + shift.toLong)
     }
 
     charts.foreach(chart => {
-      chart.timeAxis.setLowerBound(newLower)
-      chart.timeAxis.setUpperBound(newUpper)
-//      ChartUpdator.updateChart(chart.chart, chart.data)
+      chart.chart.xLower.value = newLower
+      chart.chart.xUpper.value = newUpper
     })
   }
 
@@ -97,15 +79,12 @@ class SharedAxisCharts extends VBox {
   }
 
   def zoomMax(): Unit = {
-    val minTime = charts.map(_.data.minTime).min
-    val maxTime = charts.map(_.data.maxTime).max
-
-    println(s"Zoom max: $minTime -> $maxTime")
+    val minTime = charts.map(_.chart.xLower.value).min
+    val maxTime = charts.map(_.chart.xUpper.value).max
 
     charts.foreach(chart => {
-      chart.timeAxis.setLowerBound(minTime)
-      chart.timeAxis.setUpperBound(maxTime)
-//      ChartUpdator.updateChart(chart.chart, chart.data)
+      chart.chart.xLower.value = minTime
+      chart.chart.xUpper.value = maxTime
     })
   }
 }
@@ -161,13 +140,10 @@ object Main extends JFXApp {
   println(s"tree insert, h=${batteriesTree.maxDepth}")
 
   // TODO the wrapping doesn't belong here
-  val visualizationPane = new StackPane(delegate=new BTreeChart(batteriesTree, 1000))
+  val visualizationPane = new SharedAxisCharts
+  visualizationPane.addChart(new StackPane(delegate=new BTreeChart(batteriesTree, 1000)))
 
-//  val visualizationPane = new SharedAxisCharts
-//  visualizationPane.addChart(lineChart1, batteriesTree)
-//  visualizationPane.addChart(lineChart2)
-
-//  visualizationPane.zoomMax()
+  visualizationPane.zoomMax()
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
@@ -175,7 +151,7 @@ object Main extends JFXApp {
       val splitPane = new SplitPane {
         items ++= Seq(navigationPane, visualizationPane)
         SplitPane.setResizableWithParent(navigationPane, false)
-        SplitPane.setResizableWithParent(visualizationPane, false)
+//        SplitPane.setResizableWithParent(visualizationPane, false)
       }
       splitPane.setDividerPositions(0.25)
       root = splitPane

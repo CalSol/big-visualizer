@@ -11,15 +11,19 @@ import scalafx.beans.property.{DoubleProperty, LongProperty}
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
 class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends StackPane {
+  val xLower: LongProperty = LongProperty(data.minTime)
+  val xUpper: LongProperty = LongProperty(data.maxTime)
+
+  val yLower: DoubleProperty = DoubleProperty(data.rootData.min)
+  val yUpper: DoubleProperty = DoubleProperty(data.rootData.max)
+
   class ResizableCanvas extends Canvas {
     widthProperty.addListener(evt => draw())
     heightProperty.addListener(evt => draw())
-
-    val xLower = LongProperty(data.minTime)
-    val xUpper = LongProperty(data.maxTime)
-
-    val yLower = DoubleProperty(data.rootData.min)
-    val yUpper = DoubleProperty(data.rootData.max)
+    xLower.addListener(evt => draw())
+    xUpper.addListener(evt => draw())
+    yLower.addListener(evt => draw())
+    yUpper.addListener(evt => draw())
 
     override def isResizable: Boolean = true
 
@@ -73,7 +77,10 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       }
 
       gc.fillText(s"${nodes.length} nodes, ${sections.length} sections", 0, 20)
-      gc.fillText(s"${nodeTime * 1000} ms nodes, ${sectionTime * 1000} ms sections, ${renderTime * 1000} ms render", 0, 30)
+      gc.fillText(f"${nodeTime * 1000}%.1f ms nodes, " +
+          f"${sectionTime * 1000}%.1f ms sections, " +
+          f"${renderTime * 1000}%.1f ms render",
+        0, 30)
     }
   }
 
