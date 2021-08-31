@@ -51,6 +51,32 @@ trait AxisScale {
 }
 
 object AxisScales {
+  object Year extends AxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY '['X']'")
+    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY 'y'")
+
+    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
+      initial.truncatedTo(ChronoUnit.DAYS).withDayOfYear(1)  // truncate to years not supported
+    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
+      initial.plusYears(1)
+
+    override def nominalSpan: Long = 1000 * 60 * 60 * 24 * 365
+    //                               ms>s   s>m  m>hr hr>day
+  }
+
+  object Month extends AxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM '['X']'")
+    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM")
+
+    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
+      initial.truncatedTo(ChronoUnit.DAYS).withDayOfMonth(1)  // truncate to months not supported
+    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
+      initial.plusMonths(1)
+
+    override def nominalSpan: Long = 1000 * 60 * 60 * 24 * 30
+    //                               ms>s   s>m  m>hr hr>day
+  }
+
   object Day extends AxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d 'd'")
@@ -103,7 +129,7 @@ object AxisScales {
     //                               ms>s
   }
 
-  val all = Seq(Day, Hour, Minute, Second)
+  val all = Seq(Year, Month, Day, Hour, Minute, Second)
 }
 
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
@@ -134,26 +160,40 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
       gc.clearRect(0, 0, width, height)
 
-      gc.fillText(s"${ZonedDateTime.ofInstant(Instant.ofEpochMilli(xLower.value), ZoneOffset.UTC)} / ${yLower.value}", 0, height)
+      gc.fillText(s"${yLower.value}", 0, height)
       gc.fillText(s"${yUpper.value}", 0, 10)
-      gc.fillText(s"${ZonedDateTime.ofInstant(Instant.ofEpochMilli(xUpper.value), ZoneOffset.UTC)}", width - 100, height)  // TODO anchor right
 
       val xBottom = xLower.value
       val xScale = width / (xUpper.value - xLower.value)
       val yTop = yUpper.value
       val yScale = height / (yUpper.value - yLower.value)
 
-      // draw gridlines and ticks
       // select the ticks where there is at most one tick per 64px
       val tickPixels = AxisScales.all.reverse.map { scale => (scale, scale.nominalSpan * xScale) }
       val sufficientTicks = tickPixels.filter(_._2 > 64)
       val tickScale = sufficientTicks.headOption.map(_._1).getOrElse(AxisScales.all.head)
-      val (priorTime, tickTimes) = tickScale.getTicks(xLower.value, xUpper.value)
 
+      // draw one-level-coarser (context) ticks
+      val tickScaleIndex = AxisScales.all.indexOf(tickScale)
+      if (tickScaleIndex > 0) {
+        val contextScale = AxisScales.all(tickScaleIndex - 1)
+        val (priorContextTime, contextTimes) = contextScale.getTicks(xLower.value, xUpper.value)
+        contextTimes.foreach { tickTime =>
+          val position = (tickTime - xBottom) * xScale
+          gc.strokeLine(position, height - 20, position, height)
+        }
+        (xLower.value +: (contextTimes :+ xUpper.value)).sliding(2).foreach { case Seq(curr, next) =>
+          val position = ((curr + next) / 2 - xBottom) * xScale
+          gc.fillText(contextScale.getPrefixString(curr), position, height - 10)  // TODO anchor center
+        }
+      }
+
+      // draw gridlines and ticks
+      val (priorTime, tickTimes) = tickScale.getTicks(xLower.value, xUpper.value)
       tickTimes.foreach { tickTime =>
         val position = (tickTime - xBottom) * xScale
-        gc.strokeLine(position, height - 20, position, height - 10)
-        gc.fillText(tickScale.getPostfixString(tickTime), position, height - 20)  // TODO anchor center
+        gc.strokeLine(position, height - 30, position, height - 20)
+        gc.fillText(tickScale.getPostfixString(tickTime), position, height - 30)  // TODO anchor center
       }
 
       // get nodes for the current level of resolution
