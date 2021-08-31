@@ -54,13 +54,14 @@ class SharedAxisCharts extends VBox {
     val lastChart = charts.last.chart
 
     val (newLower, newUpper) = if (event.isShiftDown) {  // shift to zoom
-      // TODO shift to zoom on cursor location
       val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
 
       val range = lastChart.xUpper.value - lastChart.xLower.value
-      val zoomFactor = Math.pow(1.01, increment)
-      val mid = (lastChart.xLower.value + lastChart.xUpper.value) / 2
-      (mid - (range * zoomFactor / 2).toLong, mid + (range * zoomFactor / 2).toLong)
+      val mouseFrac = event.getX / lastChart.getWidth  // in percent of chart from left
+      val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
+
+      val newRange = range * Math.pow(1.01, increment)
+      (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
     } else {  // normal scroll, left/right
       val increment = -event.getDeltaY
       val range = lastChart.xUpper.value - lastChart.xLower.value
