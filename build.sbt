@@ -29,3 +29,7 @@ lazy val javaFXModules = {
 }
 
 libraryDependencies ++= javaFXModules
+
+// Need to increase JVM memory sizes because of the bigness of the data
+run / javaOptions ++= Seq(
+  "-Xms256M", "-Xmx8G")
