@@ -23,11 +23,11 @@ trait AxisScale {
     val begin = truncateDateTime(time)
     var next = advanceDateTime(begin)
     val ticksBuilder = mutable.ArrayBuffer[Long]()
-    while (next.toEpochSecond * 1000 < maxTime) {
-      ticksBuilder.append(next.toEpochSecond * 1000)
+    while (next.toEpochSecond * 1000 + next.getNano / 1000000 < maxTime) {
+      ticksBuilder.append(next.toEpochSecond * 1000 + next.getNano / 1000000)
       next = advanceDateTime(next)
     }
-    (begin.toEpochSecond * 1000, ticksBuilder.toSeq)
+    (begin.toEpochSecond * 1000 + begin.getNano / 1000000, ticksBuilder.toSeq)
   }
 
   // For a given time in milliseconds, returns the postfix string (this without the coarser postfix)
@@ -74,59 +74,93 @@ object AxisScales {
     //                               ms>s   s>m  m>hr hr>day
   }
 
-  object Day extends ContextAxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d '['X']'")
+  class Days(n: Int) extends AxisScale {
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d 'd'")
 
     override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.DAYS)
+      initial.truncatedTo(ChronoUnit.DAYS).withDayOfMonth(initial.getDayOfMonth / n * n)
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusDays(1)
+      initial.plusDays(n)
 
-    override val nominalSpan: Long = 1000 * 60 * 60 * 24
+    override val nominalSpan: Long = 1000 * 60 * 60 * 24 * n
     //                               ms>s   s>m  m>hr hr>day
   }
 
-  object Hour extends ContextAxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH 'h' '['X']'")
+  object Day extends Days(1) with ContextAxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d '['X']'")
+  }
+
+  class Hours(n: Int) extends AxisScale {
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH 'h'")
 
     override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.HOURS)
+      initial.truncatedTo(ChronoUnit.DAYS).withHour(initial.getHour / n * n)
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusHours(1)
+      initial.plusHours(n)
 
-    override val nominalSpan: Long = 1000 * 60 * 60
+    override val nominalSpan: Long = 1000 * 60 * 60 * n
     //                               ms>s   s>m  m>hr
   }
 
-  object Minute extends ContextAxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm '['X']'")
+  object Hour extends Hours(1) with ContextAxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH 'h' '['X']'")
+  }
+
+  class Minutes(n: Int) extends AxisScale {
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("mm 'm'")
 
     override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.MINUTES)
+      initial.truncatedTo(ChronoUnit.HOURS).withMinute(initial.getMinute / n * n)
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusMinutes(1)
+      initial.plusMinutes(n)
 
-    override val nominalSpan: Long = 1000 * 60
+    override val nominalSpan: Long = 1000 * 60 * n
     //                               ms>s   s>m
   }
 
-  object Second extends ContextAxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm:ss '['X']'")
+  object Minute extends Minutes(1) with ContextAxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm '['X']'")
+  }
+
+  class Seconds(n: Int) extends AxisScale {
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("ss 's'")
 
     override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.SECONDS)
+      initial.truncatedTo(ChronoUnit.MINUTES).withSecond(initial.getSecond / n * n)
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusSeconds(1)
+      initial.plusSeconds(n)
 
-    override val nominalSpan: Long = 1000
+    override val nominalSpan: Long = 1000 * n
     //                               ms>s
   }
 
-  protected val all = Seq(Year, Month, Day, Hour, Minute, Second)
+  object Second extends Seconds(1) with ContextAxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm:ss '['X']'")
+  }
+
+  class Milliseconds(n: Int) extends AxisScale {
+    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("SSS 'ms'")
+
+    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
+      initial.truncatedTo(ChronoUnit.SECONDS).withNano(initial.getNano / 1000000 / n * 1000000 * n)
+    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
+      initial.plusNanos(1000000 * n)
+
+    override val nominalSpan: Long = n
+  }
+
+  object Millisecond extends Milliseconds(1) with ContextAxisScale {
+    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm:ss.SSSS '['X']'")
+  }
+
+  protected val all = Seq(
+    Year, Month,
+    Day, new Hours(6),
+    Hour, new Minutes(10),
+    Minute, new Seconds(10),
+    Second, new Milliseconds(100), new Milliseconds(10),
+    Millisecond
+  )
 
   // Picks the finest scale with a nominal span of at least the input
   def getScaleWithBestSpan(span: Long): AxisScale = {

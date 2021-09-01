@@ -117,6 +117,11 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
             case node: BTreeNode[FloatAggregate, Float] =>
               ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
             case node: BTreeLeaf[FloatAggregate, Float] =>
+              // TODO only render at some density instead of by B-tree?
+              gc.fillOval(
+                (node.point._1 - xBottom) * xScale - 2,
+                (yTop - node.point._2) * yScale - 2,
+                4, 4)  // render as points
               node.point
           }
 
@@ -147,7 +152,7 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       tickTimes.foreach { tickTime =>
         val position = (tickTime - xBottom) * xScale
         RenderHelper.drawContrastLine(gc, background, position, height - 30, position, height - 20)
-        RenderHelper.drawContrastText(gc, background, contextScale.getPostfixString(tickTime), position + 4, height - 20)
+        RenderHelper.drawContrastText(gc, background, tickScale.getPostfixString(tickTime), position + 4, height - 20)
       }
 
       // render debugging information
