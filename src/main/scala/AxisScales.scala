@@ -6,7 +6,6 @@ import scala.collection.mutable
 
 
 trait AxisScale {
-  protected val prefixFormatter: DateTimeFormatter
   protected val postfixFormatter: DateTimeFormatter
 
   // Truncates a ZonedDateTime to the previous tick
@@ -15,7 +14,7 @@ trait AxisScale {
   protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime
 
   // Returns the typical span, in milliseconds
-  def nominalSpan: Long
+  val nominalSpan: Long
 
   // Given a time range, returns the formatted tick labels and associated times
   // including the prior one
@@ -31,12 +30,6 @@ trait AxisScale {
     (begin.toEpochSecond * 1000, ticksBuilder.toSeq)
   }
 
-  // For a given time in milliseconds, return the prefix string (from this to coarser)
-  def getPrefixString(time: Long): String = {
-    val dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneOffset.UTC)
-    prefixFormatter.format(dateTime)
-  }
-
   // For a given time in milliseconds, returns the postfix string (this without the coarser postfix)
   def getPostfixString(time: Long): String = {
     val dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneOffset.UTC)
@@ -44,8 +37,18 @@ trait AxisScale {
   }
 }
 
+trait ContextAxisScale extends AxisScale {
+  protected val prefixFormatter: DateTimeFormatter
+
+  // For a given time in milliseconds, return the prefix string (from this to coarser)
+  def getPrefixString(time: Long): String = {
+    val dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneOffset.UTC)
+    prefixFormatter.format(dateTime)
+  }
+}
+
 object AxisScales {
-  object Year extends AxisScale {
+  object Year extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY 'y'")
 
@@ -54,11 +57,11 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusYears(1)
 
-    override def nominalSpan: Long = 1000 * 60 * 60 * 24 * 365
+    override val nominalSpan: Long = 1000 * 60 * 60 * 24 * 365
     //                               ms>s   s>m  m>hr hr>day
   }
 
-  object Month extends AxisScale {
+  object Month extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM")
 
@@ -67,11 +70,11 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusMonths(1)
 
-    override def nominalSpan: Long = 1000 * 60 * 60 * 24 * 30
+    override val nominalSpan: Long = 1000 * 60 * 60 * 24 * 30
     //                               ms>s   s>m  m>hr hr>day
   }
 
-  object Day extends AxisScale {
+  object Day extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d 'd'")
 
@@ -80,11 +83,11 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusDays(1)
 
-    override def nominalSpan: Long = 1000 * 60 * 60 * 24
+    override val nominalSpan: Long = 1000 * 60 * 60 * 24
     //                               ms>s   s>m  m>hr hr>day
   }
 
-  object Hour extends AxisScale {
+  object Hour extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH 'h' '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH 'h'")
 
@@ -93,11 +96,11 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusHours(1)
 
-    override def nominalSpan: Long = 1000 * 60 * 60
+    override val nominalSpan: Long = 1000 * 60 * 60
     //                               ms>s   s>m  m>hr
   }
 
-  object Minute extends AxisScale {
+  object Minute extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("mm 'm'")
 
@@ -106,11 +109,11 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusMinutes(1)
 
-    override def nominalSpan: Long = 1000 * 60
+    override val nominalSpan: Long = 1000 * 60
     //                               ms>s   s>m
   }
 
-  object Second extends AxisScale {
+  object Second extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm:ss '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("ss 's'")
 
@@ -119,9 +122,24 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusSeconds(1)
 
-    override def nominalSpan: Long = 1000
+    override val nominalSpan: Long = 1000
     //                               ms>s
   }
 
-  val all = Seq(Year, Month, Day, Hour, Minute, Second)
+  protected val all = Seq(Year, Month, Day, Hour, Minute, Second)
+
+  // Picks the finest scale with a nominal span of at least the input
+  def getScaleWithBestSpan(span: Long): AxisScale = {
+    all.findLast(_.nominalSpan > span).getOrElse(all.head)
+  }
+
+  // Picks the context scale for the given scale - typically the one one chrono unit coarser
+  // (eg, hours if the input is minutes or 10 minutes )
+  def getContextScale(scale: AxisScale): ContextAxisScale = {
+    val scaleIndex = all.indexOf(scale)
+    val truncated = all.dropRight(all.length - scaleIndex)  // drop the input scale and all finer
+    truncated.collect {
+      case x: ContextAxisScale => x
+    }.lastOption.getOrElse(all.head.asInstanceOf[ContextAxisScale])
+  }
 }

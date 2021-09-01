@@ -68,17 +68,10 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       val yScale = height / (yUpper.value - yLower.value)
 
       // select the ticks where there is at most one tick per 64px
-      val tickPixels = AxisScales.all.reverse.map { scale => (scale, scale.nominalSpan * xScale) }
-      val sufficientTicks = tickPixels.filter(_._2 > 64)
-      val tickScale = sufficientTicks.headOption.map(_._1).getOrElse(AxisScales.all.head)
+      val tickScale = AxisScales.getScaleWithBestSpan((64 / xScale).toLong)
       val (priorTime, tickTimes) = tickScale.getTicks(xLower.value, xUpper.value)
 
-      val tickScaleIndex = AxisScales.all.indexOf(tickScale)
-      val contextScale = if (tickScaleIndex > 0) {
-        AxisScales.all(tickScaleIndex - 1)
-      } else {
-        AxisScales.all.head  // yes this will look ugly, but you're not doing anything useful zoomed out this far
-      }
+      val contextScale = AxisScales.getContextScale(tickScale)
       val (priorContextTime, contextTimes) = contextScale.getTicks(xLower.value, xUpper.value)
 
       gc.save()
