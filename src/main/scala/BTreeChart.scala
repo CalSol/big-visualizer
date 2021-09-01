@@ -3,134 +3,33 @@ package bigvis
 import bigvis.btree.{BTree, BTreeData, BTreeLeaf, BTreeNode, FloatAggregate}
 import javafx.scene.canvas.Canvas
 import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
-
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.time.{Instant, ZoneOffset, ZonedDateTime}
-import scala.collection.mutable
+import javafx.scene.canvas.GraphicsContext
 
 
-trait AxisScale {
-  protected val prefixFormatter: DateTimeFormatter
-  protected val postfixFormatter: DateTimeFormatter
-
-  // Truncates a ZonedDateTime to the previous tick
-  protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime
-  // Advances a ZonedDateTime to the next tick, preserving any sub-tick offset
-  protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime
-
-  // Returns the typical span, in milliseconds
-  def nominalSpan: Long
-
-  // Given a time range, returns the formatted tick labels and associated times
-  // including the prior one
-  def getTicks(minTime: Long, maxTime: Long): (Long, Seq[Long]) = {
-    val time = ZonedDateTime.ofInstant(Instant.ofEpochMilli(minTime), ZoneOffset.UTC)
-    val begin = truncateDateTime(time)
-    var next = advanceDateTime(begin)
-    val ticksBuilder = mutable.ArrayBuffer[Long]()
-    while (next.toEpochSecond * 1000 < maxTime) {
-      ticksBuilder.append(next.toEpochSecond * 1000)
-      next = advanceDateTime(next)
-    }
-    (begin.toEpochSecond * 1000, ticksBuilder.toSeq)
+object RenderHelper {
+  def drawContrastLine(gc: GraphicsContext, background: Color,
+                       x1: Double, y1: Double, x2: Double, y2: Double): Unit = {
+    gc.save()
+    gc.setStroke(background)
+    gc.setLineWidth(gc.getLineWidth * 5)
+    gc.strokeLine(x1, y1, x2, y2)
+    gc.restore()
+    gc.strokeLine(x1, y1, x2, y2)
   }
 
-  // For a given time in milliseconds, return the prefix string (from this to coarser)
-  def getPrefixString(time: Long): String = {
-    val dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneOffset.UTC)
-    prefixFormatter.format(dateTime)
-  }
-
-  // For a given time in milliseconds, returns the postfix string (this without the coarser postfix)
-  def getPostfixString(time: Long): String = {
-    val dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(time), ZoneOffset.UTC)
-    postfixFormatter.format(dateTime)
+  def drawContrastText(gc: GraphicsContext, background: Color, text: String,
+                       x: Double, y: Double): Unit = {
+    gc.save()
+    gc.setStroke(background)
+    gc.setLineWidth(5)
+    gc.strokeText(text, x, y)
+    gc.restore()
+    gc.fillText(text, x, y)
   }
 }
 
-object AxisScales {
-  object Year extends AxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY '['X']'")
-    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY 'y'")
-
-    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.DAYS).withDayOfYear(1)  // truncate to years not supported
-    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusYears(1)
-
-    override def nominalSpan: Long = 1000 * 60 * 60 * 24 * 365
-    //                               ms>s   s>m  m>hr hr>day
-  }
-
-  object Month extends AxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM '['X']'")
-    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM")
-
-    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.DAYS).withDayOfMonth(1)  // truncate to months not supported
-    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusMonths(1)
-
-    override def nominalSpan: Long = 1000 * 60 * 60 * 24 * 30
-    //                               ms>s   s>m  m>hr hr>day
-  }
-
-  object Day extends AxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d '['X']'")
-    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d 'd'")
-
-    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.DAYS)
-    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusDays(1)
-
-    override def nominalSpan: Long = 1000 * 60 * 60 * 24
-    //                               ms>s   s>m  m>hr hr>day
-  }
-
-  object Hour extends AxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH 'h' '['X']'")
-    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH 'h'")
-
-    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.HOURS)
-    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusHours(1)
-
-    override def nominalSpan: Long = 1000 * 60 * 60
-    //                               ms>s   s>m  m>hr
-  }
-
-  object Minute extends AxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm '['X']'")
-    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("mm 'm'")
-
-    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.MINUTES)
-    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusMinutes(1)
-
-    override def nominalSpan: Long = 1000 * 60
-    //                               ms>s   s>m
-  }
-
-  object Second extends AxisScale {
-    override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY MMM d  HH:mm:ss '['X']'")
-    override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("ss 's'")
-
-    override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.SECONDS)
-    override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusSeconds(1)
-
-    override def nominalSpan: Long = 1000
-    //                               ms>s
-  }
-
-  val all = Seq(Year, Month, Day, Hour, Minute, Second)
-}
 
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
 // Inspired by:
@@ -172,29 +71,33 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       val tickPixels = AxisScales.all.reverse.map { scale => (scale, scale.nominalSpan * xScale) }
       val sufficientTicks = tickPixels.filter(_._2 > 64)
       val tickScale = sufficientTicks.headOption.map(_._1).getOrElse(AxisScales.all.head)
-
-      // draw one-level-coarser (context) ticks
-      val tickScaleIndex = AxisScales.all.indexOf(tickScale)
-      if (tickScaleIndex > 0) {
-        val contextScale = AxisScales.all(tickScaleIndex - 1)
-        val (priorContextTime, contextTimes) = contextScale.getTicks(xLower.value, xUpper.value)
-        contextTimes.foreach { tickTime =>
-          val position = (tickTime - xBottom) * xScale
-          gc.strokeLine(position, height - 20, position, height)
-        }
-        (xLower.value +: (contextTimes :+ xUpper.value)).sliding(2).foreach { case Seq(curr, next) =>
-          val position = ((curr + next) / 2 - xBottom) * xScale
-          gc.fillText(contextScale.getPrefixString(curr), position, height - 10)  // TODO anchor center
-        }
-      }
-
-      // draw gridlines and ticks
       val (priorTime, tickTimes) = tickScale.getTicks(xLower.value, xUpper.value)
+
+      val tickScaleIndex = AxisScales.all.indexOf(tickScale)
+      val contextScale = if (tickScaleIndex > 0) {
+        AxisScales.all(tickScaleIndex - 1)
+      } else {
+        AxisScales.all.head  // yes this will look ugly, but you're not doing anything useful zoomed out this far
+      }
+      val (priorContextTime, contextTimes) = contextScale.getTicks(xLower.value, xUpper.value)
+
+      gc.save()
+      gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, 0.25))
+      // draw the context gridlines
+      gc.save()
+      gc.setLineWidth(2)
+      contextTimes.foreach { tickTime =>
+        val position = (tickTime - xBottom) * xScale
+        gc.strokeLine(position, 0, position, height)
+      }
+      gc.restore()
+
+      // draw the ticklines
       tickTimes.foreach { tickTime =>
         val position = (tickTime - xBottom) * xScale
-        gc.strokeLine(position, height - 30, position, height - 20)
-        gc.fillText(tickScale.getPostfixString(tickTime), position, height - 30)  // TODO anchor center
+        gc.strokeLine(position, 0, position, height)
       }
+      gc.restore()
 
       // get nodes for the current level of resolution
       val range = xUpper.value - xLower.value
@@ -229,6 +132,29 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
             sectionPoints.map(point => (yTop - point._2) * yScale).toArray,
             sectionPoints.length)
         }
+      }
+
+      // draw context ruler
+      val background = Color.rgb(255, 255, 255, 0.75)
+      gc.save()
+      gc.setLineWidth(2)
+      contextTimes.foreach { tickTime =>
+        val position = (tickTime - xBottom) * xScale
+        RenderHelper.drawContrastLine(gc, background, position, height - 20, position, height)
+      }
+      gc.restore()
+
+      (xLower.value +: (contextTimes :+ xUpper.value)).sliding(2).foreach { case Seq(curr, next) =>
+        val position = ((curr + next) / 2 - xBottom) * xScale
+        // TODO anchor center
+        RenderHelper.drawContrastText(gc, background, contextScale.getPrefixString(curr), position, height - 10)
+      }
+
+      // draw tick ruler
+      tickTimes.foreach { tickTime =>
+        val position = (tickTime - xBottom) * xScale
+        RenderHelper.drawContrastLine(gc, background, position, height - 30, position, height - 20)
+        RenderHelper.drawContrastText(gc, background, contextScale.getPostfixString(tickTime), position + 4, height - 20)
       }
 
       // render debugging information
