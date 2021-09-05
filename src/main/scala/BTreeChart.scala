@@ -142,10 +142,15 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       }
       gc.restore()
 
-      (xLower.value +: (contextTimes :+ xUpper.value)).sliding(2).foreach { case Seq(curr, next) =>
-        val position = ((curr + next) / 2 - xBottom) * xScale
+      // for positioning the fenceposts
+      val paddedContextPositions = xLower.value +: (contextTimes :+ xUpper.value)
+      // for the actual labels - this goes between the fenceposts so has one less entry
+      val paddedContextLabels = priorContextTime +: contextTimes
+
+      (paddedContextPositions.sliding(2) zip paddedContextLabels).foreach { case (Seq(currPos, nextPos), label) =>
+        val position = ((currPos + nextPos) / 2 - xBottom) * xScale
         // TODO anchor center
-        RenderHelper.drawContrastText(gc, background, contextScale.getPrefixString(curr), position, height - 10)
+        RenderHelper.drawContrastText(gc, background, contextScale.getPrefixString(label), position, height - 10)
       }
 
       // draw tick ruler

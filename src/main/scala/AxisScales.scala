@@ -48,17 +48,19 @@ trait ContextAxisScale extends AxisScale {
 }
 
 object AxisScales {
-  object Year extends ContextAxisScale {
+  class Year(n: Int) extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY '['X']'")
     override protected val postfixFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("YYYY 'y'")
 
     override protected def truncateDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.truncatedTo(ChronoUnit.DAYS).withDayOfYear(1)  // truncate to years not supported
+      initial.truncatedTo(ChronoUnit.DAYS).withDayOfYear(1).withYear(initial.getYear / n * n)  // truncate to years not supported
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
-      initial.plusYears(1)
+      initial.plusYears(n)
 
-    override val nominalSpan: Long = 1000 * 60 * 60 * 24 * 365
+    override val nominalSpan: Long = 1000L * 60 * 60 * 24 * 365 * n
     //                               ms>s   s>m  m>hr hr>day
+
+    override def toString = s"Years($n)"
   }
 
   object Month extends ContextAxisScale {
@@ -70,8 +72,10 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusMonths(1)
 
-    override val nominalSpan: Long = 1000 * 60 * 60 * 24 * 30
+    override val nominalSpan: Long = 1000L * 60 * 60 * 24 * 30
     //                               ms>s   s>m  m>hr hr>day
+
+    override def toString = s"Month"
   }
 
   class Days(n: Int) extends AxisScale {
@@ -82,8 +86,10 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusDays(n)
 
-    override val nominalSpan: Long = 1000 * 60 * 60 * 24 * n
+    override val nominalSpan: Long = 1000L * 60 * 60 * 24 * n
     //                               ms>s   s>m  m>hr hr>day
+
+    override def toString = s"Days($n)"
   }
 
   object Day extends Days(1) with ContextAxisScale {
@@ -98,8 +104,10 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusHours(n)
 
-    override val nominalSpan: Long = 1000 * 60 * 60 * n
+    override val nominalSpan: Long = 1000L * 60 * 60 * n
     //                               ms>s   s>m  m>hr
+
+    override def toString = s"Hours($n)"
   }
 
   object Hour extends Hours(1) with ContextAxisScale {
@@ -114,8 +122,10 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusMinutes(n)
 
-    override val nominalSpan: Long = 1000 * 60 * n
+    override val nominalSpan: Long = 1000L * 60 * n
     //                               ms>s   s>m
+
+    override def toString = s"Minutes($n)"
   }
 
   object Minute extends Minutes(1) with ContextAxisScale {
@@ -130,8 +140,10 @@ object AxisScales {
     override protected def advanceDateTime(initial: ZonedDateTime): ZonedDateTime =
       initial.plusSeconds(n)
 
-    override val nominalSpan: Long = 1000 * n
+    override val nominalSpan: Long = 1000L * n
     //                               ms>s
+
+    override def toString = s"Seconds($n)"
   }
 
   object Second extends Seconds(1) with ContextAxisScale {
@@ -147,6 +159,8 @@ object AxisScales {
       initial.plusNanos(1000000 * n)
 
     override val nominalSpan: Long = n
+
+    override def toString = s"Milliseconds($n)"
   }
 
   object Millisecond extends Milliseconds(1) with ContextAxisScale {
@@ -154,7 +168,8 @@ object AxisScales {
   }
 
   protected val all = Seq(
-    Year, Month,
+    new Year(1000), new Year(100), new Year(10), new Year(1),
+    Month,
     Day, new Hours(6),
     Hour, new Minutes(10),
     Minute, new Seconds(10),

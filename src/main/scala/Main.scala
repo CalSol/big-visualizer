@@ -126,19 +126,23 @@ object Main extends JFXApp {
   }
 
   println("Open file")
-  val batteriesTree = new BTree(FloatAggregate.aggregator, 16)
-  val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
-  println("Map data")
-  val batteriesData = reader.toStream.tail.flatMap { fields =>  // tail to discard header
-    (fields(0).toDoubleOption, fields(2).toFloatOption) match {  // we actually need the double resolution for timestamp
-      case (Some(time), Some(data)) => Some(((time * 1000).toLong, data))
-      case _ => None
-    }
-  }
-  println(s"batteries data: ${batteriesData.length}")
+  val batteriesTree = new BTree(FloatAggregate.aggregator, 8)
 
-  batteriesTree.appendAll(batteriesData)
-  println(s"tree insert, h=${batteriesTree.maxDepth}")
+  {
+    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
+    println("Map data")
+    val batteriesData = reader.toStream.tail.flatMap { fields => // tail to discard header
+      (fields(0).toDoubleOption, fields(2).toFloatOption) match { // we actually need the double resolution for timestamp
+        case (Some(time), Some(data)) => Some(((time * 1000).toLong, data))
+        case _ => None
+      }
+    }
+    println(s"batteries data: ${batteriesData.length}")
+
+    batteriesTree.appendAll(batteriesData)
+    println(s"tree insert, h=${batteriesTree.maxDepth}")
+  }
+  System.gc()  // this saves ~1-2 GB of memory
 
   // TODO the wrapping doesn't belong here
   val visualizationPane = new SharedAxisCharts
