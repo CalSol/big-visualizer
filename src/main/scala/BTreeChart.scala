@@ -42,6 +42,14 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
   val yLower: DoubleProperty = DoubleProperty(data.rootData.min)
   val yUpper: DoubleProperty = DoubleProperty(data.rootData.max)
 
+  // Rendering properties
+  protected val GRIDLINE_ALPHA = 0.25
+  protected val CONTEXT_GRIDLINE_WIDTH = 2
+
+  protected val CONTRAST_BACKGROUND = Color.rgb(255, 255, 255, 0.75)
+
+  protected val AGGREGATE_ALPHA = 0.5
+
   class ResizableCanvas extends Canvas {
     widthProperty.addListener(evt => draw())
     heightProperty.addListener(evt => draw())
@@ -63,11 +71,11 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       val yScale = height / (yUpper.value - yLower.value)
 
       gc.save()
-      gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, 0.25))
+      gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, GRIDLINE_ALPHA))
 
       // draw the context gridlines
       gc.save()
-      gc.setLineWidth(2)
+      gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
       contextTimes.foreach { tickTime =>
         val position = (tickTime - xBottom) * xScale
         gc.strokeLine(position, 0, position, height)
@@ -94,12 +102,11 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       val yTop = yUpper.value
       val yScale = height / (yUpper.value - yLower.value)
 
-      val background = Color.rgb(255, 255, 255, 0.75)
       gc.save()
-      gc.setLineWidth(2)
+      gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
       contextTimes.foreach { tickTime =>
         val position = (tickTime - xBottom) * xScale
-        RenderHelper.drawContrastLine(gc, background, position, height - 20, position, height)
+        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND, position, height - 20, position, height)
       }
       gc.restore()
 
@@ -111,14 +118,14 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       (paddedContextPositions.sliding(2) zip paddedContextLabels).foreach { case (Seq(currPos, nextPos), label) =>
         val position = ((currPos + nextPos) / 2 - xBottom) * xScale
         // TODO anchor center
-        RenderHelper.drawContrastText(gc, background, contextScale.getPrefixString(label), position, height - 10)
+        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, contextScale.getPrefixString(label), position, height - 10)
       }
 
       // draw tick ruler
       tickTimes.foreach { tickTime =>
         val position = (tickTime - xBottom) * xScale
-        RenderHelper.drawContrastLine(gc, background, position, height - 30, position, height - 20)
-        RenderHelper.drawContrastText(gc, background, tickScale.getPostfixString(tickTime), position + 4, height - 20)
+        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND, position, height - 30, position, height - 20)
+        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, tickScale.getPostfixString(tickTime), position + 4, height - 20)
       }
     }
 
@@ -149,9 +156,35 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
         })
       }
 
-      // render the nodes
+
       val renderTime = timeExec {
         sections.foreach { section =>
+          // render the aggregate ranges
+          val contiguousNodeSubsections = ChunkSeq[BTreeData[FloatAggregate, Float], BTreeData[FloatAggregate, Float]](section, section.head, {
+            case (prev: BTreeNode[FloatAggregate, Float], curr: BTreeNode[FloatAggregate, float]) => (curr, false)
+            case (prev: BTreeLeaf[FloatAggregate, Float], curr: BTreeLeaf[FloatAggregate, float]) => (curr, false)
+            case (_, curr) => (curr, true)
+          })
+          gc.save()
+          gc.setFill(gc.getFill.asInstanceOf[Color].deriveColor(0, 1, 1, AGGREGATE_ALPHA))
+          contiguousNodeSubsections
+              .filter(_.head.isInstanceOf[BTreeNode[FloatAggregate, Float]])
+              .asInstanceOf[Seq[Seq[BTreeNode[FloatAggregate, Float]]]]
+              .foreach { subsection =>
+                val bottomPoints = subsection.map { node =>
+                  ((node.maxTime + node.minTime) / 2, node.nodeData.min)
+                }
+                val topPoints = subsection.map { node =>
+                  ((node.maxTime + node.minTime) / 2, node.nodeData.max)
+                }
+                val polygonPoints = bottomPoints ++ topPoints.reverse
+                val polygonXs = polygonPoints.map{point => (point._1 - xBottom) * xScale}.toArray
+                val polygonYs = polygonPoints.map{point => (yTop - point._2) * yScale}.toArray
+                  gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
+              }
+          gc.restore()
+
+          // render the data / average lines
           val sectionPoints = section.map {
             case node: BTreeNode[FloatAggregate, Float] =>
               ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
