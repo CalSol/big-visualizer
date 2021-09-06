@@ -7,6 +7,8 @@ import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 import javafx.scene.canvas.GraphicsContext
 
+import java.time.{Instant, ZoneOffset, ZonedDateTime}
+
 
 object RenderHelper {
   def drawContrastLine(gc: GraphicsContext, background: Color,
@@ -50,6 +52,16 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
   protected val AGGREGATE_ALPHA = 0.5
 
+  def timestampFromDateTime(dateTime: ZonedDateTime): Long = {
+    val utcDateTime = dateTime.withZoneSameInstant(ZoneOffset.UTC)
+    utcDateTime.toEpochSecond * 1000 + utcDateTime.getNano / 1000 / 1000
+  }
+
+  def dateTimeFromTimestamp(timestamp: Long): ZonedDateTime = {
+    val utcDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)
+    utcDateTime.withZoneSameInstant(ZoneOffset.ofHours(-5))
+  }
+
   class ResizableCanvas extends Canvas {
     widthProperty.addListener(evt => draw())
     heightProperty.addListener(evt => draw())
@@ -61,7 +73,7 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
     override def isResizable: Boolean = true
 
     protected def drawGridlines(gc: GraphicsContext,
-                                contextTimes: Seq[Long], tickTimes: Seq[Long]): Unit = {
+                                contextTimes: Seq[ZonedDateTime], tickTimes: Seq[ZonedDateTime]): Unit = {
       // TODO can we dedup this block?
       val width = getWidth
       val height = getHeight
@@ -77,14 +89,14 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       gc.save()
       gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
       contextTimes.foreach { tickTime =>
-        val position = (tickTime - xBottom) * xScale
+        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
         gc.strokeLine(position, 0, position, height)
       }
       gc.restore()
 
       // draw the ticklines
       tickTimes.foreach { tickTime =>
-        val position = (tickTime - xBottom) * xScale
+        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
         gc.strokeLine(position, 0, position, height)
       }
 
@@ -93,7 +105,8 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
     protected def drawRulers(gc: GraphicsContext,
                              contextScale: ContextAxisScale, tickScale: AxisScale,
-                             priorContextTime: Long, contextTimes: Seq[Long], tickTimes: Seq[Long]): Unit = {
+                             priorContextTime: ZonedDateTime, contextTimes: Seq[ZonedDateTime],
+                             tickTimes: Seq[ZonedDateTime]): Unit = {
       // TODO can we dedup this block?
       val width = getWidth
       val height = getHeight
@@ -105,13 +118,13 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       gc.save()
       gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
       contextTimes.foreach { tickTime =>
-        val position = (tickTime - xBottom) * xScale
+        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
         RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND, position, height - 20, position, height)
       }
       gc.restore()
 
       // for positioning the fenceposts
-      val paddedContextPositions = xLower.value +: (contextTimes :+ xUpper.value)
+      val paddedContextPositions = xLower.value +: (contextTimes.map(timestampFromDateTime) :+ xUpper.value)
       // for the actual labels - this goes between the fenceposts so has one less entry
       val paddedContextLabels = priorContextTime +: contextTimes
 
@@ -123,7 +136,7 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
       // draw tick ruler
       tickTimes.foreach { tickTime =>
-        val position = (tickTime - xBottom) * xScale
+        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
         RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND, position, height - 30, position, height - 20)
         RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, tickScale.getPostfixString(tickTime), position + 4, height - 20)
       }
@@ -230,10 +243,12 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
       // select the ticks where there is at most one tick per 64px
       val tickScale = AxisScales.getScaleWithBestSpan((64 / xScale).toLong)
-      val (priorTime, tickTimes) = tickScale.getTicks(xLower.value, xUpper.value)
+      val (priorTime, tickTimes) = tickScale.getTicks(
+        dateTimeFromTimestamp(xLower.value), dateTimeFromTimestamp(xUpper.value))
 
       val contextScale = AxisScales.getContextScale(tickScale)
-      val (priorContextTime, contextTimes) = contextScale.getTicks(xLower.value, xUpper.value)
+      val (priorContextTime, contextTimes) = contextScale.getTicks(
+        dateTimeFromTimestamp(xLower.value), dateTimeFromTimestamp(xUpper.value))
 
       // actually draw everything
       drawGridlines(gc, contextTimes, tickTimes)
