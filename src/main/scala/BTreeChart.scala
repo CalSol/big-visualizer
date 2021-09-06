@@ -7,7 +7,7 @@ import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 import javafx.scene.canvas.GraphicsContext
 
-import java.time.{Instant, ZoneOffset, ZonedDateTime}
+import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 
 
 object RenderHelper {
@@ -50,7 +50,7 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
   protected val CONTRAST_BACKGROUND = Color.rgb(255, 255, 255, 0.75)
 
-  protected val AGGREGATE_ALPHA = 0.5
+  protected val AGGREGATE_ALPHA = 0.33
 
   def timestampFromDateTime(dateTime: ZonedDateTime): Long = {
     val utcDateTime = dateTime.withZoneSameInstant(ZoneOffset.UTC)
@@ -59,7 +59,7 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
   def dateTimeFromTimestamp(timestamp: Long): ZonedDateTime = {
     val utcDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)
-    utcDateTime.withZoneSameInstant(ZoneOffset.ofHours(-5))
+    utcDateTime.withZoneSameInstant(ZoneId.of(ZoneId.SHORT_IDS.get("CST")))
   }
 
   class ResizableCanvas extends Canvas {

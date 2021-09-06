@@ -48,7 +48,7 @@ trait ContextAxisScale extends AxisScale {
 object AxisScales {
   class Year(n: Int) extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY '['X']'")
+      DateTimeFormatter.ofPattern("YYYY '['zzz / X']'")
     override protected val postfixFormatter: DateTimeFormatter =
       DateTimeFormatter.ofPattern("YYYY 'y'")
 
@@ -65,7 +65,7 @@ object AxisScales {
 
   object Month extends ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY MMM '['X']'")
+      DateTimeFormatter.ofPattern("YYYY MMM '['zzz / X']'")
     override protected val postfixFormatter: DateTimeFormatter =
       DateTimeFormatter.ofPattern("MMM")
 
@@ -97,7 +97,7 @@ object AxisScales {
 
   object Day extends Days(1) with ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY MMM d (EEE) '['X']'")
+      DateTimeFormatter.ofPattern("YYYY MMM d (EEE) '['zzz / X']'")
   }
 
   class Hours(n: Int) extends AxisScale {
@@ -117,7 +117,7 @@ object AxisScales {
 
   object Hour extends Hours(1) with ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH 'h' '['X']'")
+      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH 'h' '['zzz / X']'")
   }
 
   class Minutes(n: Int) extends AxisScale {
@@ -137,7 +137,7 @@ object AxisScales {
 
   object Minute extends Minutes(1) with ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH:mm '['X']'")
+      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH:mm '['zzz / X']'")
   }
 
   class Seconds(n: Int) extends AxisScale {
@@ -157,7 +157,7 @@ object AxisScales {
 
   object Second extends Seconds(1) with ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH:mm:ss '['X']'")
+      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH:mm:ss '['zzz / X']'")
   }
 
   class Milliseconds(n: Int) extends AxisScale {
@@ -176,7 +176,7 @@ object AxisScales {
 
   object Millisecond extends Milliseconds(1) with ContextAxisScale {
     override protected val prefixFormatter: DateTimeFormatter =
-      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH:mm:ss.SSSS '['X']'")
+      DateTimeFormatter.ofPattern("YYYY MMM d (EEE)  HH:mm:ss.SSSS '['zzz / X']'")
   }
 
   protected val all = Seq(
