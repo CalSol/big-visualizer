@@ -1,6 +1,6 @@
 package bigvis
 
-import bigvis.btree.{BTree, BTreeData, BTreeLeaf, BTreeNode, FloatAggregate}
+import bigvis.btree.{BTree, BTreeData, BTreeLeaf, BTreeNode, FloatAggregator}
 import javafx.scene.canvas.Canvas
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
@@ -37,7 +37,7 @@ object RenderHelper {
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
-class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends StackPane {
+class BTreeChart(data: BTree[FloatAggregator], timeBreak: Long) extends StackPane {
   val xLower: LongProperty = LongProperty(data.minTime)
   val xUpper: LongProperty = LongProperty(data.maxTime)
 
@@ -159,11 +159,11 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
       // filter nodes into break-able sections
       val (sectionTime, sections) = timeExec {
-        ChunkSeq(nodes, xLower.value, (prevTime: Long, elem: BTreeData[FloatAggregate, Float]) => {
+        ChunkSeq(nodes, xLower.value, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
           elem match {
-            case node: BTreeNode[FloatAggregate, Float] =>
+            case node: BTreeNode[FloatAggregator] =>
               (node.maxTime, node.minTime > prevTime + timeBreak)
-            case node: BTreeLeaf[FloatAggregate, Float] => // TODO return individual data points
+            case node: BTreeLeaf[FloatAggregator] => // TODO return individual data points
               (node.point._1, node.point._1 > prevTime + timeBreak)
           }
         })
@@ -173,16 +173,16 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
       val renderTime = timeExec {
         sections.foreach { section =>
           // render the aggregate ranges
-          val contiguousNodeSubsections = ChunkSeq[BTreeData[FloatAggregate, Float], BTreeData[FloatAggregate, Float]](section, section.head, {
-            case (prev: BTreeNode[FloatAggregate, Float], curr: BTreeNode[FloatAggregate, float]) => (curr, false)
-            case (prev: BTreeLeaf[FloatAggregate, Float], curr: BTreeLeaf[FloatAggregate, float]) => (curr, false)
+          val contiguousNodeSubsections = ChunkSeq[BTreeData[FloatAggregator], BTreeData[FloatAggregator]](section, section.head, {
+            case (prev: BTreeNode[FloatAggregator], curr: BTreeNode[FloatAggregator]) => (curr, false)
+            case (prev: BTreeLeaf[FloatAggregator], curr: BTreeLeaf[FloatAggregator]) => (curr, false)
             case (_, curr) => (curr, true)
           })
           gc.save()
           gc.setFill(gc.getFill.asInstanceOf[Color].deriveColor(0, 1, 1, AGGREGATE_ALPHA))
           contiguousNodeSubsections
-              .filter(_.head.isInstanceOf[BTreeNode[FloatAggregate, Float]])
-              .asInstanceOf[Seq[Seq[BTreeNode[FloatAggregate, Float]]]]
+              .filter(_.head.isInstanceOf[BTreeNode[FloatAggregator]])
+              .asInstanceOf[Seq[Seq[BTreeNode[FloatAggregator]]]]
               .foreach { subsection =>
                 val bottomPoints = subsection.map { node =>
                   ((node.maxTime + node.minTime) / 2, node.nodeData.min)
@@ -199,9 +199,9 @@ class BTreeChart(data: BTree[FloatAggregate, Float], timeBreak: Long) extends St
 
           // render the data / average lines
           val sectionPoints = section.map {
-            case node: BTreeNode[FloatAggregate, Float] =>
+            case node: BTreeNode[FloatAggregator] =>
               ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
-            case node: BTreeLeaf[FloatAggregate, Float] =>
+            case node: BTreeLeaf[FloatAggregator] =>
               // TODO only render at some density instead of by B-tree?
               gc.fillOval(
                 (node.point._1 - xBottom) * xScale - 2,

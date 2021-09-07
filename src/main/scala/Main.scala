@@ -1,20 +1,19 @@
 package bigvis
 
-import bigvis.btree.{BTree, BTreeIntermediateNode, BTreeLeaf, BTreeLeafNode, BTreeNode, FloatAggregate}
+import btree.{BTree, FloatAggregator}
+
+import com.github.tototoshi.csv.CSVReader
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.beans.property.StringProperty
-import scalafx.collections.ObservableBuffer
 import scalafx.scene.Scene
-import scalafx.scene.chart.{LineChart, NumberAxis, XYChart}
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
-import scalafx.scene.layout.{Priority, StackPane, VBox}
 import scalafx.scene.layout.VBox.setVgrow
+import scalafx.scene.layout.{Priority, StackPane, VBox}
 
 import java.io.File
-import collection.mutable
-import com.github.tototoshi.csv.CSVReader
+import scala.collection.mutable
 
 
 // TODO split into data model
@@ -126,7 +125,7 @@ object Main extends JFXApp {
   }
 
   println("Open file")
-  val batteriesTree = new BTree(FloatAggregate.aggregator, 8)
+  val batteriesTree = new BTree(FloatAggregator.aggregator, 8)
 
   {
     val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
