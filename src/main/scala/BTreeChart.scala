@@ -57,6 +57,23 @@ object ChartTools {
 }
 
 
+case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin: Double, yMax: Double) {
+  val xRange = xMax - xMin
+  val xScale = width.toDouble / xRange  // multiply time units by this to get offset in pixels
+  val yRange = yMax - yMin
+  val yScale = height.toDouble / yRange  // multiply value units by this to get offset in pixels
+
+  // select the ticks where there is at most one tick per 64px
+  // TODO parameterized
+  val tickScale = AxisScales.getScaleWithBestSpan((64 / xScale).toLong)
+  val contextScale = AxisScales.getContextScale(tickScale)
+
+  def xValToPos(value: Double): Double = (value - xMin) * xScale
+  def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xMin
+  def yValToPos(value: Double): Double = (yMax - value) * yScale
+}
+
+
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
@@ -117,16 +134,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     }
 
     // Actual rendering functions
-    protected def drawGridlines(gc: GraphicsContext,
-                                contextTimes: Seq[ZonedDateTime], tickTimes: Seq[ZonedDateTime]): Unit = {
-      // TODO can we dedup this block?
-      val width = getWidth
-      val height = getHeight
-      val xBottom = xLower.value
-      val xScale = width / (xUpper.value - xLower.value)
-      val yTop = yUpper.value
-      val yScale = height / (yUpper.value - yLower.value)
-
+    protected def drawGridlines(gc: GraphicsContext, scale: ChartParameters,
+                                tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
       gc.save()
       gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, GRIDLINE_ALPHA))
 
@@ -134,78 +143,65 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       gc.save()
       gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
       contextTimes.foreach { tickTime =>
-        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
-        gc.strokeLine(position, 0, position, height)
+        val position = scale.xValToPos(timestampFromDateTime(tickTime))
+        gc.strokeLine(position, 0, position, scale.height)
       }
       gc.restore()
 
       // draw the ticklines
       tickTimes.foreach { tickTime =>
-        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
-        gc.strokeLine(position, 0, position, height)
+        val position = scale.xValToPos(timestampFromDateTime(tickTime))
+        gc.strokeLine(position, 0, position, scale.height)
       }
 
       gc.restore()
     }
 
-    protected def drawRulers(gc: GraphicsContext,
-                             contextScale: ContextAxisScale, tickScale: AxisScale,
-                             priorContextTime: ZonedDateTime, contextTimes: Seq[ZonedDateTime],
-                             tickTimes: Seq[ZonedDateTime]): Unit = {
-      // TODO can we dedup this block?
-      val width = getWidth
-      val height = getHeight
-      val xBottom = xLower.value
-      val xScale = width / (xUpper.value - xLower.value)
-      val yTop = yUpper.value
-      val yScale = height / (yUpper.value - yLower.value)
-
+    protected def drawRulers(gc: GraphicsContext, scale: ChartParameters,
+                             priorContextTime: ZonedDateTime,
+                             tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
       gc.save()
       gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
       contextTimes.foreach { tickTime =>
-        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
-        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND, position, height - 20, position, height)
+        val position = scale.xValToPos(timestampFromDateTime(tickTime))
+        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
+          position, scale.height - 20,
+          position, scale.height)
       }
       gc.restore()
 
       // for positioning the fenceposts
-      val paddedContextPositions = xLower.value +: (contextTimes.map(timestampFromDateTime) :+ xUpper.value)
+      val paddedContextPositions = scale.xMin +: (contextTimes.map(timestampFromDateTime) :+ scale.xMax)
       // for the actual labels - this goes between the fenceposts so has one less entry
       val paddedContextLabels = priorContextTime +: contextTimes
 
       (paddedContextPositions.sliding(2) zip paddedContextLabels).foreach { case (Seq(currPos, nextPos), label) =>
-        val position = ((currPos + nextPos) / 2 - xBottom) * xScale
+        val position = scale.xValToPos((currPos + nextPos) / 2)
         // TODO anchor center
-        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, contextScale.getPrefixString(label), position, height - 10)
+        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.contextScale.getPrefixString(label),
+          position, scale.height - 10)
       }
 
       // draw tick ruler
       tickTimes.foreach { tickTime =>
-        val position = (timestampFromDateTime(tickTime) - xBottom) * xScale
-        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND, position, height - 30, position, height - 20)
-        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, tickScale.getPostfixString(tickTime), position + 4, height - 20)
+        val position = scale.xValToPos(timestampFromDateTime(tickTime))
+        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
+          position, scale.height - 30,
+          position, scale.height - 20)
+        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.tickScale.getPostfixString(tickTime),
+          position + 4, scale.height - 20)
       }
     }
 
-    protected def drawChart(gc: GraphicsContext, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
-      // TODO can we dedup this block?
-      val width = getWidth
-      val height = getHeight
-      val xBottom = xLower.value
-      val xScale = width / (xUpper.value - xLower.value)
-      val yTop = yUpper.value
-      val yScale = height / (yUpper.value - yLower.value)
-
-      // get nodes for the current level of resolution
-      val range = xUpper.value - xLower.value
+    protected def drawChart(gc: GraphicsContext, scale: ChartParameters, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
       val (nodeTime, nodes) = timeExec {
         // TODO
-        series.getData(xLower.value, xUpper.value, (range / width).toLong)
+        series.getData(scale.xMin, scale.xMax, (scale.xRange.toDouble / scale.width).toLong)
       }
 
       // filter nodes into break-able sections
       val (sectionTime, sections) = timeExec {
-        ChunkSeq(nodes, xLower.value, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
+        ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
           elem match {
             case node: BTreeNode[FloatAggregator] =>
               (node.maxTime, node.minTime > prevTime + timeBreak)
@@ -240,8 +236,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
                   ((node.maxTime + node.minTime) / 2, node.nodeData.max)
                 }
                 val polygonPoints = bottomPoints ++ topPoints.reverse
-                val polygonXs = polygonPoints.map{point => (point._1 - xBottom) * xScale}.toArray
-                val polygonYs = polygonPoints.map{point => (yTop - point._2) * yScale}.toArray
+                val polygonXs = polygonPoints.map{point => scale.xValToPos(point._1)}.toArray
+                val polygonYs = polygonPoints.map{point => scale.yValToPos(point._2)}.toArray
                   gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
               }
           gc.restore()
@@ -253,15 +249,15 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
             case node: BTreeLeaf[FloatAggregator] =>
               // TODO only render at some density instead of by B-tree?
               gc.fillOval(
-                (node.point._1 - xBottom) * xScale - 2,
-                (yTop - node.point._2) * yScale - 2,
+                scale.xValToPos(node.point._1) - 2,
+                scale.yValToPos(node.point._2) - 2,
                 4, 4)  // render as points
               node.point
           }
 
           gc.strokePolyline(
-            sectionPoints.map(point => (point._1 - xBottom) * xScale).toArray,
-            sectionPoints.map(point => (yTop - point._2) * yScale).toArray,
+            sectionPoints.map(point => scale.xValToPos(point._1)).toArray,
+            sectionPoints.map(point => scale.yValToPos(point._2)).toArray,
             sectionPoints.length)
         }
       }
@@ -277,48 +273,32 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       gc.restore()
     }
 
-    protected def drawCursor(gc: GraphicsContext): Unit = {
-      // TODO can we dedup this block?
-      val width = getWidth
-      val height = getHeight
-      val xBottom = xLower.value
-      val xScale = width / (xUpper.value - xLower.value)
-      val yTop = yUpper.value
-      val yScale = height / (yUpper.value - yLower.value)
-
-      val cursorXTime = cursorXPos.value / xScale + xBottom
-      gc.strokeLine(cursorXPos.value, 0, cursorXPos.value, height)
-      gc.strokeText(s"${cursorXTime}", cursorXPos.value, height - 60)
+    protected def drawCursor(gc: GraphicsContext, scale: ChartParameters): Unit = {
+      val cursorPos = cursorXPos.value
+      val cursorTime = scale.xPosToVal(cursorPos)
+      gc.strokeLine(cursorPos, 0, cursorPos, scale.height)
+      gc.strokeText(s"${cursorTime}", cursorPos, scale.height - 60)
     }
 
     protected def draw(): Unit = {
       val gc = getGraphicsContext2D
-      val width = getWidth
-      val height = getHeight
+      val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
+        xLower.value, xUpper.value, yLower.value, yUpper.value)
 
-      gc.clearRect(0, 0, width, height)
-
-      val xBottom = xLower.value
-      val xScale = width / (xUpper.value - xLower.value)
-      val yTop = yUpper.value
-      val yScale = height / (yUpper.value - yLower.value)
-
-      // select the ticks where there is at most one tick per 64px
-      val tickScale = AxisScales.getScaleWithBestSpan((64 / xScale).toLong)
-      val (priorTime, tickTimes) = tickScale.getTicks(
-        dateTimeFromTimestamp(xLower.value), dateTimeFromTimestamp(xUpper.value))
-
-      val contextScale = AxisScales.getContextScale(tickScale)
-      val (priorContextTime, contextTimes) = contextScale.getTicks(
-        dateTimeFromTimestamp(xLower.value), dateTimeFromTimestamp(xUpper.value))
+      gc.clearRect(0, 0, scale.width, scale.height)
 
       // actually draw everything
       timeGridImage match {
         case Some(timeGridImage) =>
           gc.drawImage(timeGridImage, 0, 0)
         case None => // redraw the time grid
-          drawGridlines(gc, contextTimes, tickTimes)
-          drawRulers(gc, contextScale, tickScale, priorContextTime, contextTimes, tickTimes)
+          val (priorTime, tickTimes) = scale.tickScale.getTicks(
+            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+          val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
+            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+
+          drawGridlines(gc, scale, tickTimes, contextTimes)
+          drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
           timeGridImage = Some(canvas.snapshot(new SnapshotParameters, null))
       }
 
@@ -327,12 +307,12 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
           gc.drawImage(chartImage, 0, 0)
         case None =>
           // TODO proper scales for Y axis
-          gc.fillText(s"${yLower.value}", 0, height)
-          gc.fillText(s"${yUpper.value}", 0, 10)
+          gc.fillText(s"${scale.yMax}", 0, scale.height)
+          gc.fillText(s"${scale.yMax}", 0, 10)
 
           val renderTime = timeExec {
             datasets.zipWithIndex.foreach { case (dataset, i) =>
-              drawChart(gc, dataset.data, dataset.color, i)
+              drawChart(gc, scale, dataset.data, dataset.color, i)
             }
           }
           val saveTime = timeExec {
@@ -341,10 +321,9 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
           gc.fillText(f" => ${renderTime * 1000}%.1f ms total render, " +
               f"${saveTime * 1000}%.1f ms save",
             0, 20 + (datasets.length * 10) + 10)
-
       }
 
-      drawCursor(gc)
+      drawCursor(gc, scale)
     }
   }
 
