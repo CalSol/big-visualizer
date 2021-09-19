@@ -37,4 +37,5 @@ run / javaOptions ++= Seq(
 // Force hardware rendering
 // TODO does this actually do anything?
 run / javaOptions += "-Dsun.java2d.opengl=true"
+run / javaOptions += "-Dsun.java2d.accthreshold=0"
 run / javaOptions += "-Dprism.order=es2"

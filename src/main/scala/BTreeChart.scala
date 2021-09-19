@@ -1,6 +1,7 @@
 package bigvis
 
 import bigvis.btree.{BTree, BTreeData, BTreeLeaf, BTreeNode, FloatAggregator}
+import com.sun.prism.BasicStroke
 import javafx.scene.SnapshotParameters
 import javafx.scene.canvas.Canvas
 import javafx.scene.layout.StackPane
@@ -8,12 +9,21 @@ import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 import javafx.scene.canvas.GraphicsContext
 import javafx.scene.image.WritableImage
+import scalafx.embed.swing.SwingFXUtils
 
+import java.awt
+import java.awt.{Graphics2D, Transparency}
+import java.awt.image.BufferedImage
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 import scala.collection.mutable
 
 
 object RenderHelper {
+  def toAwtColor(color: Color): java.awt.Color = {
+    new java.awt.Color(color.getRed.toFloat, color.getGreen.toFloat, color.getBlue.toFloat,
+      color.getOpacity.toFloat)
+  }
+
   def drawContrastLine(gc: GraphicsContext, background: Color,
                        x1: Double, y1: Double, x2: Double, y2: Double): Unit = {
     gc.save()
@@ -32,6 +42,27 @@ object RenderHelper {
     gc.strokeText(text, x, y)
     gc.restore()
     gc.fillText(text, x, y)
+  }
+
+  def drawContrastLine(g: Graphics2D, background: Color,
+                       x1: Int, y1: Int, x2: Int, y2: Int): Unit = {
+    val gg = g.create().asInstanceOf[Graphics2D]
+    gg.setColor(toAwtColor(background))
+    gg.setStroke(new java.awt.BasicStroke(gg.getStroke.asInstanceOf[java.awt.BasicStroke].getLineWidth * 3))
+    gg.drawLine(x1, y1, x2, y2)
+
+    g.drawLine(x1, y1, x2, y2)
+
+    gg.dispose()
+  }
+
+  def drawContrastText(g: Graphics2D, background: Color, text: String,
+                       x: Int, y: Int): Unit = {
+    val gg = g.create().asInstanceOf[Graphics2D]
+    gg.setColor(toAwtColor(background))
+    // TODO draw background - stroke width=5
+    gg.dispose()
+    g.drawString(text, x, y)
   }
 }
 
@@ -116,9 +147,14 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
     override def isResizable: Boolean = true
 
+    // Pesistent VolatileImages
+    import java.awt.GraphicsEnvironment
+    private val graphicsConfiguration = GraphicsEnvironment.getLocalGraphicsEnvironment
+        .getDefaultScreenDevice.getDefaultConfiguration
+
     // Saved graphics to speed up rendering
-    protected var timeGridImage: Option[WritableImage] = None
-    protected var chartImage: Option[WritableImage] = None
+    protected var timeGridImage: Option[BufferedImage] = None
+    protected var chartImage: Option[BufferedImage] = None
 
     protected def redrawAll(): Unit = {  // invalidates everything and redraw
       timeGridImage = None
@@ -134,41 +170,42 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     }
 
     // Actual rendering functions
-    protected def drawGridlines(gc: GraphicsContext, scale: ChartParameters,
+    protected def drawGridlines(g: Graphics2D, scale: ChartParameters,
                                 tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
-      gc.save()
-      gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, GRIDLINE_ALPHA))
+      val gg = g.create()
+      // TODO set alpha
+//      gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, GRIDLINE_ALPHA))
 
       // draw the context gridlines
-      gc.save()
-      gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
+      val contextG = g.create().asInstanceOf[Graphics2D]
+      contextG.setStroke(new awt.BasicStroke(CONTEXT_GRIDLINE_WIDTH))
       contextTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        gc.strokeLine(position, 0, position, scale.height)
+        val position = scale.xValToPos(timestampFromDateTime(tickTime)).toInt
+        contextG.drawLine(position, 0, position, scale.height)
       }
-      gc.restore()
+      contextG.dispose()
 
       // draw the ticklines
       tickTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        gc.strokeLine(position, 0, position, scale.height)
+        val position = scale.xValToPos(timestampFromDateTime(tickTime)).toInt
+        gg.drawLine(position, 0, position, scale.height)
       }
 
-      gc.restore()
+      gg.dispose()
     }
 
-    protected def drawRulers(gc: GraphicsContext, scale: ChartParameters,
+    protected def drawRulers(g: Graphics2D, scale: ChartParameters,
                              priorContextTime: ZonedDateTime,
                              tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
-      gc.save()
-      gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
+      val contextG = g.create().asInstanceOf[Graphics2D]
+      contextG.setStroke(new awt.BasicStroke(CONTEXT_GRIDLINE_WIDTH))
       contextTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
+        val position = scale.xValToPos(timestampFromDateTime(tickTime)).toInt
+        RenderHelper.drawContrastLine(contextG, CONTRAST_BACKGROUND,
           position, scale.height - 20,
           position, scale.height)
       }
-      gc.restore()
+      contextG.dispose()
 
       // for positioning the fenceposts
       val paddedContextPositions = scale.xMin +: (contextTimes.map(timestampFromDateTime) :+ scale.xMax)
@@ -176,24 +213,24 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       val paddedContextLabels = priorContextTime +: contextTimes
 
       (paddedContextPositions.sliding(2) zip paddedContextLabels).foreach { case (Seq(currPos, nextPos), label) =>
-        val position = scale.xValToPos((currPos + nextPos) / 2)
+        val position = scale.xValToPos((currPos + nextPos) / 2).toInt
         // TODO anchor center
-        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.contextScale.getPrefixString(label),
+        RenderHelper.drawContrastText(g, CONTRAST_BACKGROUND, scale.contextScale.getPrefixString(label),
           position, scale.height - 10)
       }
 
       // draw tick ruler
       tickTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
+        val position = scale.xValToPos(timestampFromDateTime(tickTime)).toInt
+        RenderHelper.drawContrastLine(g, CONTRAST_BACKGROUND,
           position, scale.height - 30,
           position, scale.height - 20)
-        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.tickScale.getPostfixString(tickTime),
+        RenderHelper.drawContrastText(g, CONTRAST_BACKGROUND, scale.tickScale.getPostfixString(tickTime),
           position + 4, scale.height - 20)
       }
     }
 
-    protected def drawChart(gc: GraphicsContext, scale: ChartParameters, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
+    protected def drawChart(g: Graphics2D, scale: ChartParameters, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
       val (nodeTime, nodes) = timeExec {
         // TODO
         series.getData(scale.xMin, scale.xMax, (scale.xRange.toDouble / scale.width).toLong)
@@ -211,9 +248,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
         })
       }
 
-      gc.save()
-      gc.setFill(chartColor)
-      gc.setStroke(chartColor)
+      val gg = g.create().asInstanceOf[Graphics2D]
+      gg.setColor(RenderHelper.toAwtColor(chartColor))
 
       val renderTime = timeExec {
         sections.foreach { section =>
@@ -223,8 +259,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
             case (prev: BTreeLeaf[FloatAggregator], curr: BTreeLeaf[FloatAggregator]) => (curr, false)
             case (_, curr) => (curr, true)
           })
-          gc.save()
-          gc.setFill(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA))
+          val outlineG = gg.create().asInstanceOf[Graphics2D]
+          outlineG.setColor(RenderHelper.toAwtColor(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA)))
           contiguousNodeSubsections
               .filter(_.head.isInstanceOf[BTreeNode[FloatAggregator]])
               .asInstanceOf[Seq[Seq[BTreeNode[FloatAggregator]]]]
@@ -236,11 +272,12 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
                   ((node.maxTime + node.minTime) / 2, node.nodeData.max)
                 }
                 val polygonPoints = bottomPoints ++ topPoints.reverse
-                val polygonXs = polygonPoints.map{point => scale.xValToPos(point._1)}.toArray
-                val polygonYs = polygonPoints.map{point => scale.yValToPos(point._2)}.toArray
-                  gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
+                val polygonXs = polygonPoints.map{point => scale.xValToPos(point._1).toInt}.toArray
+                val polygonYs = polygonPoints.map{point => scale.yValToPos(point._2).toInt}.toArray
+
+                outlineG.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
               }
-          gc.restore()
+          outlineG.dispose()
 
           // render the data / average lines
           val sectionPoints = section.map {
@@ -248,29 +285,29 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
               ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
             case node: BTreeLeaf[FloatAggregator] =>
               // TODO only render at some density instead of by B-tree?
-              gc.fillOval(
-                scale.xValToPos(node.point._1) - 2,
-                scale.yValToPos(node.point._2) - 2,
-                4, 4)  // render as points
+              gg.fillRect(
+                scale.xValToPos(node.point._1).toInt - 2,
+                scale.yValToPos(node.point._2).toInt - 2,
+                5, 5)  // render as points
               node.point
           }
 
-          gc.strokePolyline(
-            sectionPoints.map(point => scale.xValToPos(point._1)).toArray,
-            sectionPoints.map(point => scale.yValToPos(point._2)).toArray,
+          gg.drawPolyline(
+            sectionPoints.map(point => scale.xValToPos(point._1).toInt).toArray,
+            sectionPoints.map(point => scale.yValToPos(point._2).toInt).toArray,
             sectionPoints.length)
         }
       }
 
       // render debugging information
-      gc.fillText(f"${(nodeTime + sectionTime + renderTime) * 1000}%.1f ms total    " +
+      gg.drawString(f"${(nodeTime + sectionTime + renderTime) * 1000}%.1f ms total    " +
           f"${nodeTime * 1000}%.1f ms nodes, " +
           f"${sectionTime * 1000}%.1f ms sections, " +
           f"${renderTime * 1000}%.1f ms render    " +
           f"${nodes.length} nodes, ${sections.length} sections",
         0, 20 + (offset * 10))
 
-      gc.restore()
+      gg.dispose()
     }
 
     protected def drawCursor(gc: GraphicsContext, scale: ChartParameters): Unit = {
@@ -284,44 +321,64 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       val gc = getGraphicsContext2D
       val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
         xLower.value, xUpper.value, yLower.value, yUpper.value)
+      if (scale.width <= 0 || scale.height <= 0) {
+        return
+      }
+
+
 
       gc.clearRect(0, 0, scale.width, scale.height)
 
       // actually draw everything
-      timeGridImage match {
-        case Some(timeGridImage) =>
-          gc.drawImage(timeGridImage, 0, 0)
-        case None => // redraw the time grid
-          val (priorTime, tickTimes) = scale.tickScale.getTicks(
-            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
-          val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
-            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+      if (timeGridImage.isEmpty) {
+        val (priorTime, tickTimes) = scale.tickScale.getTicks(
+          dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+        val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
+          dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
 
-          drawGridlines(gc, scale, tickTimes, contextTimes)
-          drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
-          timeGridImage = Some(canvas.snapshot(new SnapshotParameters, null))
+        val image = graphicsConfiguration.createCompatibleVolatileImage(scale.width, scale.height, Transparency.TRANSLUCENT)
+        image.setAccelerationPriority(1)
+        val graphics = image.createGraphics()
+        graphics.setColor(new java.awt.Color(0, 0, 0))
+
+        drawGridlines(graphics, scale, tickTimes, contextTimes)
+        drawRulers(graphics, scale, priorContextTime, tickTimes, contextTimes)
+        graphics.dispose()
+
+        timeGridImage = Some(image.getSnapshot)
       }
 
-      chartImage match {
-        case Some(chartImage) =>
-          gc.drawImage(chartImage, 0, 0)
-        case None =>
-          // TODO proper scales for Y axis
-          gc.fillText(s"${scale.yMax}", 0, scale.height)
-          gc.fillText(s"${scale.yMax}", 0, 10)
+      if (chartImage.isEmpty) {
+        // TODO proper scales for Y axis
+        val image = graphicsConfiguration.createCompatibleVolatileImage(scale.width, scale.height, Transparency.TRANSLUCENT)
+        image.setAccelerationPriority(1)
+        val graphics = image.createGraphics()
+        graphics.setColor(new java.awt.Color(0, 0, 0))
 
-          val renderTime = timeExec {
-            datasets.zipWithIndex.foreach { case (dataset, i) =>
-              drawChart(gc, scale, dataset.data, dataset.color, i)
-            }
+        graphics.drawString(s"${scale.yMax}", 0, scale.height)
+        graphics.drawString(s"${scale.yMax}", 0, 10)
+
+        val renderTime = timeExec {
+          datasets.zipWithIndex.foreach { case (dataset, i) =>
+            drawChart(graphics, scale, dataset.data, dataset.color, i)
           }
-          val saveTime = timeExec {
-            chartImage = Some(canvas.snapshot(new SnapshotParameters, null))
-          }
-          gc.fillText(f" => ${renderTime * 1000}%.1f ms total render, " +
-              f"${saveTime * 1000}%.1f ms save",
-            0, 20 + (datasets.length * 10) + 10)
+        }
+        graphics.drawString(f" => ${renderTime * 1000}%.1f ms total render, " +
+            s"accel=${image.getCapabilities(graphicsConfiguration).isAccelerated}",
+          0, 20 + (datasets.length * 10) + 10)
+        graphics.dispose()
+
+        val snapTime = timeExec {
+          chartImage = Some(image.getSnapshot)
+        }
+        println(f"${snapTime * 1000}%.1f ms snapshot")
       }
+
+      val drawTime = timeExec {
+        gc.drawImage(SwingFXUtils.toFXImage(timeGridImage.get, null), 0, 0)
+        gc.drawImage(SwingFXUtils.toFXImage(chartImage.get, null), 0, 0)
+      }
+      gc.strokeText(f"${drawTime * 1000.0}%.1f ms toFx / draw", 0, scale.height - 40)
 
       drawCursor(gc, scale)
     }
