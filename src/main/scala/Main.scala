@@ -38,7 +38,7 @@ class SharedAxisCharts extends VBox {
     chart.setOnScroll((t: ScrollEvent) => {
       onScroll(t)
     })
-    chart.setOnMousePressed((t: MouseEvent) => {
+    chart.setOnMouseMoved((t: MouseEvent) => {
       onMouse(t)
     })
 
@@ -53,6 +53,12 @@ class SharedAxisCharts extends VBox {
     event.consume()
 
     val lastChart = charts.last.chart
+
+    if (event.isControlDown) {  // TODO implement vertical zoom/pan
+
+    } else {
+
+    }
 
     val (newLower, newUpper) = if (event.isShiftDown) {  // shift to zoom
       val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
@@ -77,7 +83,9 @@ class SharedAxisCharts extends VBox {
   }
 
   protected def onMouse(event: MouseEvent): Unit = {
-
+    charts.foreach(chart => {
+      chart.chart.cursorXPos.value = event.getX
+    })
   }
 
   def zoomMax(): Unit = {
@@ -95,6 +103,8 @@ class SharedAxisCharts extends VBox {
 object Main extends JFXApp {
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
+
+  println(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}")
 
   val dataRoot = new TreeItem(DataItem("root")) {
     expanded = true
@@ -127,6 +137,7 @@ object Main extends JFXApp {
   }
 
   println("Open file")
+  // TODO open all 28
   val cellTrees = (0 until 28).map{ _ => new BTree(FloatAggregator.aggregator, 8) }
 
   {
@@ -159,10 +170,15 @@ object Main extends JFXApp {
   }
   System.gc()  // this saves ~1-2 GB of memory
 
+  // TODO make this much less hacky =s
+  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
+    ChartDefinition(f"cell-$i", cellTree, cellColor)
+  }
+
   // TODO the wrapping doesn't belong here
   val visualizationPane = new SharedAxisCharts
   visualizationPane.addChart(new StackPane(delegate=
-    new BTreeChart(cellTrees, 1000)))
+    new BTreeChart(chartDefs, 1000)))
 
   visualizationPane.zoomMax()
 

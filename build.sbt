@@ -33,3 +33,7 @@ libraryDependencies ++= javaFXModules
 // Need to increase JVM memory sizes because of the bigness of the data
 run / javaOptions ++= Seq(
   "-Xms1G", "-Xmx8G")
+
+// Force hardware rendering
+// TODO does this actually do anything?
+run / javaOptions += "-Dprism.order=es2"

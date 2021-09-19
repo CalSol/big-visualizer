@@ -1,13 +1,16 @@
 package bigvis
 
 import bigvis.btree.{BTree, BTreeData, BTreeLeaf, BTreeNode, FloatAggregator}
+import javafx.scene.SnapshotParameters
 import javafx.scene.canvas.Canvas
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 import javafx.scene.canvas.GraphicsContext
+import javafx.scene.image.WritableImage
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
+import scala.collection.mutable
 
 
 object RenderHelper {
@@ -33,16 +36,39 @@ object RenderHelper {
 }
 
 
+case class ChartDefinition(
+    name: String,
+    data: BTree[FloatAggregator],
+    color: Color
+)
+
+object ChartTools {
+  // Using the golden ratio method to generate chart colors, from
+  // https://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
+  // https://softwareengineering.stackexchange.com/questions/198065/what-algorithms-are-there-for-picking-colors-for-plot-lines-on-graphs
+  // TODO also mess with saturation and value?
+  protected val goldenRatioConjugate = 0.618033988749895
+
+  def createColors(count: Int): Seq[Color] = {
+    (0 until count).map { i =>
+      Color.hsb((goldenRatioConjugate * 360 * i) % 360, 0.75, 0.75, 0.5)
+    }
+  }
+}
+
+
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
-class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends StackPane {
-  val xLower: LongProperty = LongProperty(datasets.map(_.minTime).min)
-  val xUpper: LongProperty = LongProperty(datasets.map(_.maxTime).max)
+class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackPane {
+  val xLower: LongProperty = LongProperty(datasets.map(_.data.minTime).min)
+  val xUpper: LongProperty = LongProperty(datasets.map(_.data.maxTime).max)
 
-  val yLower: DoubleProperty = DoubleProperty(datasets.map(_.rootData.min).min)
-  val yUpper: DoubleProperty = DoubleProperty(datasets.map(_.rootData.max).max)
+  val yLower: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.min).min)
+  val yUpper: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.max).max)
+
+  val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
 
   // Rendering properties
   protected val GRIDLINE_ALPHA = 0.25
@@ -63,15 +89,34 @@ class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends
   }
 
   class ResizableCanvas extends Canvas {
-    widthProperty.addListener(evt => draw())
-    heightProperty.addListener(evt => draw())
-    xLower.addListener(evt => draw())
-    xUpper.addListener(evt => draw())
-    yLower.addListener(evt => draw())
-    yUpper.addListener(evt => draw())
+    widthProperty.addListener(evt => redrawAll())
+    heightProperty.addListener(evt => redrawAll())
+    xLower.addListener(evt => redrawAll())
+    xUpper.addListener(evt => redrawAll())
+    yLower.addListener(evt => redrawChart())
+    yUpper.addListener(evt => redrawChart())
+    cursorXPos.addListener(evt => redrawCursor())
 
     override def isResizable: Boolean = true
 
+    // Saved graphics to speed up rendering
+    protected var timeGridImage: Option[WritableImage] = None
+    protected var chartImage: Option[WritableImage] = None
+
+    protected def redrawAll(): Unit = {  // invalidates everything and redraw
+      timeGridImage = None
+      chartImage = None
+      draw()
+    }
+    protected def redrawChart(): Unit = {  // invalidates the cached chart (but keeps the time grid)
+      chartImage = None
+      draw()
+    }
+    protected def redrawCursor(): Unit = {  // invalidates nothing (only redraws cursor)
+      draw()
+    }
+
+    // Actual rendering functions
     protected def drawGridlines(gc: GraphicsContext,
                                 contextTimes: Seq[ZonedDateTime], tickTimes: Seq[ZonedDateTime]): Unit = {
       // TODO can we dedup this block?
@@ -142,7 +187,7 @@ class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends
       }
     }
 
-    protected def drawChart(gc: GraphicsContext, series: BTree[FloatAggregator]): Unit = {
+    protected def drawChart(gc: GraphicsContext, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
       // TODO can we dedup this block?
       val width = getWidth
       val height = getHeight
@@ -170,6 +215,9 @@ class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends
         })
       }
 
+      gc.save()
+      gc.setFill(chartColor)
+      gc.setStroke(chartColor)
 
       val renderTime = timeExec {
         sections.foreach { section =>
@@ -180,7 +228,7 @@ class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends
             case (_, curr) => (curr, true)
           })
           gc.save()
-          gc.setFill(gc.getFill.asInstanceOf[Color].deriveColor(0, 1, 1, AGGREGATE_ALPHA))
+          gc.setFill(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA))
           contiguousNodeSubsections
               .filter(_.head.isInstanceOf[BTreeNode[FloatAggregator]])
               .asInstanceOf[Seq[Seq[BTreeNode[FloatAggregator]]]]
@@ -219,23 +267,36 @@ class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends
       }
 
       // render debugging information
-      gc.fillText(s"${nodes.length} nodes, ${sections.length} sections", 0, 20)
-      gc.fillText(f"${nodeTime * 1000}%.1f ms nodes, " +
+      gc.fillText(f"${(nodeTime + sectionTime + renderTime) * 1000}%.1f ms total    " +
+          f"${nodeTime * 1000}%.1f ms nodes, " +
           f"${sectionTime * 1000}%.1f ms sections, " +
-          f"${renderTime * 1000}%.1f ms render",
-        0, 30)
+          f"${renderTime * 1000}%.1f ms render    " +
+          f"${nodes.length} nodes, ${sections.length} sections",
+        0, 20 + (offset * 10))
+
+      gc.restore()
     }
 
-    def draw(): Unit = {
+    protected def drawCursor(gc: GraphicsContext): Unit = {
+      // TODO can we dedup this block?
+      val width = getWidth
+      val height = getHeight
+      val xBottom = xLower.value
+      val xScale = width / (xUpper.value - xLower.value)
+      val yTop = yUpper.value
+      val yScale = height / (yUpper.value - yLower.value)
+
+      val cursorXTime = cursorXPos.value / xScale + xBottom
+      gc.strokeLine(cursorXPos.value, 0, cursorXPos.value, height)
+      gc.strokeText(s"${cursorXTime}", cursorXPos.value, height - 60)
+    }
+
+    protected def draw(): Unit = {
       val gc = getGraphicsContext2D
       val width = getWidth
       val height = getHeight
 
       gc.clearRect(0, 0, width, height)
-
-      // TODO proper scales for Y axis
-      gc.fillText(s"${yLower.value}", 0, height)
-      gc.fillText(s"${yUpper.value}", 0, 10)
 
       val xBottom = xLower.value
       val xScale = width / (xUpper.value - xLower.value)
@@ -252,36 +313,44 @@ class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends
         dateTimeFromTimestamp(xLower.value), dateTimeFromTimestamp(xUpper.value))
 
       // actually draw everything
-      drawGridlines(gc, contextTimes, tickTimes)
-
-      // TODO draw more!
-      gc.save()
-      // Using the golden ratio method to generate chart colors, from
-      // https://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
-      // https://softwareengineering.stackexchange.com/questions/198065/what-algorithms-are-there-for-picking-colors-for-plot-lines-on-graphs
-      // TODO also mess with saturation and value?
-      val goldenRatioConjugate = 0.618033988749895 * 360
-      var hue = 0.0f
-      for (i <- 0 until 4) {
-        gc.setStroke(Color.hsb(hue, 0.75, 0.75, 0.5))
-        gc.setFill(Color.hsb(hue, 0.75, 0.75, 0.5))
-        drawChart(gc, datasets(i))
-        hue = ((hue + goldenRatioConjugate) % 360).toFloat
+      timeGridImage match {
+        case Some(timeGridImage) =>
+          gc.drawImage(timeGridImage, 0, 0)
+        case None => // redraw the time grid
+          drawGridlines(gc, contextTimes, tickTimes)
+          drawRulers(gc, contextScale, tickScale, priorContextTime, contextTimes, tickTimes)
+          timeGridImage = Some(canvas.snapshot(new SnapshotParameters, null))
       }
 
-      gc.restore()
+      chartImage match {
+        case Some(chartImage) =>
+          gc.drawImage(chartImage, 0, 0)
+        case None =>
+          // TODO proper scales for Y axis
+          gc.fillText(s"${yLower.value}", 0, height)
+          gc.fillText(s"${yUpper.value}", 0, 10)
 
+          val renderTime = timeExec {
+            datasets.zipWithIndex.foreach { case (dataset, i) =>
+              drawChart(gc, dataset.data, dataset.color, i)
+            }
+          }
+          val saveTime = timeExec {
+            chartImage = Some(canvas.snapshot(new SnapshotParameters, null))
+          }
+          gc.fillText(f" => ${renderTime * 1000}%.1f ms total render, " +
+              f"${saveTime * 1000}%.1f ms save",
+            0, 20 + (datasets.length * 10) + 10)
 
-      drawRulers(gc, contextScale, tickScale, priorContextTime, contextTimes, tickTimes)
+      }
+
+      drawCursor(gc)
     }
   }
 
   val canvas = new ResizableCanvas()
+
   getChildren.add(canvas)
   canvas.widthProperty().bind(widthProperty())
   canvas.heightProperty().bind(heightProperty())
-
-  override protected def layoutChildren(): Unit = {
-    canvas.draw()
-  }
 }
