@@ -37,12 +37,12 @@ object RenderHelper {
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
-class BTreeChart(data: BTree[FloatAggregator], timeBreak: Long) extends StackPane {
-  val xLower: LongProperty = LongProperty(data.minTime)
-  val xUpper: LongProperty = LongProperty(data.maxTime)
+class BTreeChart(datasets: Seq[BTree[FloatAggregator]], timeBreak: Long) extends StackPane {
+  val xLower: LongProperty = LongProperty(datasets.map(_.minTime).min)
+  val xUpper: LongProperty = LongProperty(datasets.map(_.maxTime).max)
 
-  val yLower: DoubleProperty = DoubleProperty(data.rootData.min)
-  val yUpper: DoubleProperty = DoubleProperty(data.rootData.max)
+  val yLower: DoubleProperty = DoubleProperty(datasets.map(_.rootData.min).min)
+  val yUpper: DoubleProperty = DoubleProperty(datasets.map(_.rootData.max).max)
 
   // Rendering properties
   protected val GRIDLINE_ALPHA = 0.25
@@ -142,7 +142,7 @@ class BTreeChart(data: BTree[FloatAggregator], timeBreak: Long) extends StackPan
       }
     }
 
-    protected def drawChart(gc: GraphicsContext): Unit = {
+    protected def drawChart(gc: GraphicsContext, series: BTree[FloatAggregator]): Unit = {
       // TODO can we dedup this block?
       val width = getWidth
       val height = getHeight
@@ -154,7 +154,8 @@ class BTreeChart(data: BTree[FloatAggregator], timeBreak: Long) extends StackPan
       // get nodes for the current level of resolution
       val range = xUpper.value - xLower.value
       val (nodeTime, nodes) = timeExec {
-        data.getData(xLower.value, xUpper.value, (range / width).toLong)
+        // TODO
+        series.getData(xLower.value, xUpper.value, (range / width).toLong)
       }
 
       // filter nodes into break-able sections
@@ -253,7 +254,23 @@ class BTreeChart(data: BTree[FloatAggregator], timeBreak: Long) extends StackPan
       // actually draw everything
       drawGridlines(gc, contextTimes, tickTimes)
 
-      drawChart(gc)
+      // TODO draw more!
+      gc.save()
+      // Using the golden ratio method to generate chart colors, from
+      // https://martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically/
+      // https://softwareengineering.stackexchange.com/questions/198065/what-algorithms-are-there-for-picking-colors-for-plot-lines-on-graphs
+      // TODO also mess with saturation and value?
+      val goldenRatioConjugate = 0.618033988749895 * 360
+      var hue = 0.0f
+      for (i <- 0 until 4) {
+        gc.setStroke(Color.hsb(hue, 0.75, 0.75, 0.5))
+        gc.setFill(Color.hsb(hue, 0.75, 0.75, 0.5))
+        drawChart(gc, datasets(i))
+        hue = ((hue + goldenRatioConjugate) % 360).toFloat
+      }
+
+      gc.restore()
+
 
       drawRulers(gc, contextScale, tickScale, priorContextTime, contextTimes, tickTimes)
     }

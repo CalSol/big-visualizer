@@ -2,6 +2,7 @@ package bigvis
 
 import btree.{BTree, FloatAggregator}
 
+import bigvis.btree.BTree.TimestampType
 import com.github.tototoshi.csv.CSVReader
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
@@ -14,6 +15,7 @@ import scalafx.scene.layout.{Priority, StackPane, VBox}
 
 import java.io.File
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 // TODO split into data model
@@ -125,27 +127,42 @@ object Main extends JFXApp {
   }
 
   println("Open file")
-  val batteriesTree = new BTree(FloatAggregator.aggregator, 8)
+  val cellTrees = (0 until 28).map{ _ => new BTree(FloatAggregator.aggregator, 8) }
 
   {
-    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
+    val cellArrs = cellTrees.map{ _ => new mutable.ArrayBuffer[(TimestampType, Float)]() }
+
+//    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
+    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.cell.voltage.csv"))
     println("Map data")
-    val batteriesData = reader.toStream.tail.flatMap { fields => // tail to discard header
-      (fields(0).toDoubleOption, fields(2).toFloatOption) match { // we actually need the double resolution for timestamp
-        case (Some(time), Some(data)) => Some(((time * 1000).toLong, data))
-        case _ => None
+    val batteriesIterator = reader.iterator
+    batteriesIterator.next()  // skip header row
+    batteriesIterator.foreach { fields => // tail to discard header
+       fields(0).toDoubleOption match {
+         case Some(time) =>
+           val timeLong = (time * 1000).toLong
+           cellArrs.zipWithIndex.map { case (cellArr, i) =>
+             fields(2 + i).toFloatOption match {
+               case Some(field) => cellArr.append((timeLong, field))
+               case None =>
+             }
+           }
+         case None =>
       }
     }
-    println(s"batteries data: ${batteriesData.length}")
+    println(f"data read, n=${cellArrs(0).length}")
 
-    batteriesTree.appendAll(batteriesData)
-    println(s"tree insert, h=${batteriesTree.maxDepth}")
+    (cellTrees zip cellArrs).zipWithIndex.foreach { case ((cellTree, cellArr), i) =>
+      cellTree.appendAll(cellArr)
+      println(s"tree insert $i, h=${cellTree.maxDepth}")
+    }
   }
   System.gc()  // this saves ~1-2 GB of memory
 
   // TODO the wrapping doesn't belong here
   val visualizationPane = new SharedAxisCharts
-  visualizationPane.addChart(new StackPane(delegate=new BTreeChart(batteriesTree, 1000)))
+  visualizationPane.addChart(new StackPane(delegate=
+    new BTreeChart(cellTrees, 1000)))
 
   visualizationPane.zoomMax()
 
