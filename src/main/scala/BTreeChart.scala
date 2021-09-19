@@ -8,7 +8,7 @@ import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 import javafx.scene.canvas.GraphicsContext
-import javafx.scene.image.WritableImage
+import scalafx.scene.image.WritableImage
 import scalafx.embed.swing.SwingFXUtils
 
 import java.awt
@@ -154,7 +154,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
     // Saved graphics to speed up rendering
     protected var timeGridImage: Option[BufferedImage] = None
-    protected var chartImage: Option[BufferedImage] = None
+    protected var chartImage: Option[WritableImage] = None
 
     protected def redrawAll(): Unit = {  // invalidates everything and redraw
       timeGridImage = None
@@ -275,7 +275,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
                 val polygonXs = polygonPoints.map{point => scale.xValToPos(point._1).toInt}.toArray
                 val polygonYs = polygonPoints.map{point => scale.yValToPos(point._2).toInt}.toArray
 
-                outlineG.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
+//                outlineG.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
               }
           outlineG.dispose()
 
@@ -325,60 +325,83 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
         return
       }
 
+//      val gridTime = timeExec {
+//        // actually draw everything
+//        if (timeGridImage.isEmpty) {
+//          val (priorTime, tickTimes) = scale.tickScale.getTicks(
+//            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+//          val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
+//            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+//
+//          val image = graphicsConfiguration.createCompatibleVolatileImage(scale.width, scale.height, Transparency.TRANSLUCENT)
+//          image.setAccelerationPriority(1)
+//          val graphics = image.createGraphics()
+//          graphics.setColor(new java.awt.Color(0, 0, 0))
+//
+//          drawGridlines(graphics, scale, tickTimes, contextTimes)
+//          drawRulers(graphics, scale, priorContextTime, tickTimes, contextTimes)
+//          graphics.dispose()
+//
+//          timeGridImage = Some(image.getSnapshot)
+//        }
+//      }
 
+      val (chartTime, convTime) = timeExec {
+        var convTime = -1.0
+        if (chartImage.isEmpty) {
+          // TODO proper scales for Y axis
+          val (setupTime, (image, graphics)) = timeExec {
+            val image = graphicsConfiguration.createCompatibleVolatileImage(scale.width, scale.height, Transparency.TRANSLUCENT)
+            image.setAccelerationPriority(1)
+            val graphics = image.createGraphics()
+            //          graphics.drawImage(timeGridImage.get, 0, 0, null)
+            graphics.setColor(new java.awt.Color(0, 0, 0))
+            (image, graphics)
+          }
 
-      gc.clearRect(0, 0, scale.width, scale.height)
+          val gridTime = timeExec {
+            val (priorTime, tickTimes) = scale.tickScale.getTicks(
+              dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+            val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
+              dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+            drawGridlines(graphics, scale, tickTimes, contextTimes)
+            drawRulers(graphics, scale, priorContextTime, tickTimes, contextTimes)
+          }
 
-      // actually draw everything
-      if (timeGridImage.isEmpty) {
-        val (priorTime, tickTimes) = scale.tickScale.getTicks(
-          dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
-        val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
-          dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+          val renderTime = timeExec {
+            graphics.drawString(s"${scale.yMax}", 0, scale.height)
+            graphics.drawString(s"${scale.yMax}", 0, 10)
 
-        val image = graphicsConfiguration.createCompatibleVolatileImage(scale.width, scale.height, Transparency.TRANSLUCENT)
-        image.setAccelerationPriority(1)
-        val graphics = image.createGraphics()
-        graphics.setColor(new java.awt.Color(0, 0, 0))
+            datasets.zipWithIndex.foreach { case (dataset, i) =>
+              drawChart(graphics, scale, dataset.data, dataset.color, i)
+            }
+          }
+          graphics.drawString(f" => " +
+              f"${setupTime * 1000}%.1f ms setup, " +
+              f"${gridTime * 1000}%.1f ms grid, " +
+              f"${renderTime * 1000}%.1f ms render, " +
+              s"accel=${image.getCapabilities(graphicsConfiguration).isAccelerated}",
+            0, 20 + (datasets.length * 10) + 10)
+          graphics.dispose()
 
-        drawGridlines(graphics, scale, tickTimes, contextTimes)
-        drawRulers(graphics, scale, priorContextTime, tickTimes, contextTimes)
-        graphics.dispose()
-
-        timeGridImage = Some(image.getSnapshot)
-      }
-
-      if (chartImage.isEmpty) {
-        // TODO proper scales for Y axis
-        val image = graphicsConfiguration.createCompatibleVolatileImage(scale.width, scale.height, Transparency.TRANSLUCENT)
-        image.setAccelerationPriority(1)
-        val graphics = image.createGraphics()
-        graphics.setColor(new java.awt.Color(0, 0, 0))
-
-        graphics.drawString(s"${scale.yMax}", 0, scale.height)
-        graphics.drawString(s"${scale.yMax}", 0, 10)
-
-        val renderTime = timeExec {
-          datasets.zipWithIndex.foreach { case (dataset, i) =>
-            drawChart(graphics, scale, dataset.data, dataset.color, i)
+          convTime = timeExec {
+            chartImage = Some(SwingFXUtils.toFXImage(image.getSnapshot, chartImage.orNull))
           }
         }
-        graphics.drawString(f" => ${renderTime * 1000}%.1f ms total render, " +
-            s"accel=${image.getCapabilities(graphicsConfiguration).isAccelerated}",
-          0, 20 + (datasets.length * 10) + 10)
-        graphics.dispose()
-
-        val snapTime = timeExec {
-          chartImage = Some(image.getSnapshot)
-        }
-        println(f"${snapTime * 1000}%.1f ms snapshot")
+        convTime
       }
 
       val drawTime = timeExec {
-        gc.drawImage(SwingFXUtils.toFXImage(timeGridImage.get, null), 0, 0)
-        gc.drawImage(SwingFXUtils.toFXImage(chartImage.get, null), 0, 0)
-      }
-      gc.strokeText(f"${drawTime * 1000.0}%.1f ms toFx / draw", 0, scale.height - 40)
+        gc.clearRect(0, 0, scale.width, scale.height)
+        gc.drawImage(chartImage.get, 0, 0)
+        canvas.snapshot(null, null)  // for timing purposes
+      }._1
+
+      gc.strokeText(f" => " +
+//          f"${gridTime * 1000.0}%.1f ms grid, " +
+          f"${chartTime * 1000.0}%.1f ms render " +
+          f"(${convTime * 1000.0}%.1f ms conv), " +
+          f"${drawTime * 1000.0}%.1f ms toFx / draw", 0, scale.height - 40)
 
       drawCursor(gc, scale)
     }
