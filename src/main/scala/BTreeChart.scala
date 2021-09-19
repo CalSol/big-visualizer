@@ -314,12 +314,9 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
             datasets.zipWithIndex.foreach { case (dataset, i) =>
               drawChart(gc, scale, dataset.data, dataset.color, i)
             }
-          }
-          val saveTime = timeExec {
             chartImage = Some(canvas.snapshot(new SnapshotParameters, null))
           }
-          gc.fillText(f" => ${renderTime * 1000}%.1f ms total render, " +
-              f"${saveTime * 1000}%.1f ms save",
+          gc.fillText(f" => ${renderTime * 1000}%.1f ms total render",
             0, 20 + (datasets.length * 10) + 10)
       }
 
