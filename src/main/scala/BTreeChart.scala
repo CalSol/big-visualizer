@@ -105,35 +105,14 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     utcDateTime.withZoneSameInstant(ZoneId.of(ZoneId.SHORT_IDS.get("CST")))
   }
 
-  class ResizableCanvas extends Canvas {
-    widthProperty.addListener(evt => redrawAll())
-    heightProperty.addListener(evt => redrawAll())
-    xLower.addListener(evt => redrawAll())
-    xUpper.addListener(evt => redrawAll())
-    yLower.addListener(evt => redrawChart())
-    yUpper.addListener(evt => redrawChart())
-    cursorXPos.addListener(evt => redrawCursor())
+  class GridCanvas extends Canvas {
+    widthProperty.addListener(evt => draw())
+    heightProperty.addListener(evt => draw())
+    xLower.addListener(evt => draw())
+    xUpper.addListener(evt => draw())
 
     override def isResizable: Boolean = true
 
-    // Saved graphics to speed up rendering
-    protected var timeGridImage: Option[WritableImage] = None
-    protected var chartImage: Option[WritableImage] = None
-
-    protected def redrawAll(): Unit = {  // invalidates everything and redraw
-      timeGridImage = None
-      chartImage = None
-      draw()
-    }
-    protected def redrawChart(): Unit = {  // invalidates the cached chart (but keeps the time grid)
-      chartImage = None
-      draw()
-    }
-    protected def redrawCursor(): Unit = {  // invalidates nothing (only redraws cursor)
-      draw()
-    }
-
-    // Actual rendering functions
     protected def drawGridlines(gc: GraphicsContext, scale: ChartParameters,
                                 tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
       gc.save()
@@ -193,6 +172,35 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       }
     }
 
+    protected def draw(): Unit = {
+      val gc = getGraphicsContext2D
+      val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
+        xLower.value, xUpper.value, yLower.value, yUpper.value)
+
+      gc.clearRect(0, 0, scale.width, scale.height)
+
+      val (priorTime, tickTimes) = scale.tickScale.getTicks(
+        dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+      val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
+        dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+
+      drawGridlines(gc, scale, tickTimes, contextTimes)
+      drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
+
+    }
+  }
+
+  class ChartCanvas extends Canvas {
+    widthProperty.addListener(evt => draw())
+    heightProperty.addListener(evt => draw())
+    xLower.addListener(evt => draw())
+    xUpper.addListener(evt => draw())
+    yLower.addListener(evt => draw())
+    yUpper.addListener(evt => draw())
+
+    override def isResizable: Boolean = true
+
+    // Actual rendering functions
     protected def drawChart(gc: GraphicsContext, scale: ChartParameters, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
       val (nodeTime, nodes) = timeExec {
         // TODO
@@ -273,6 +281,48 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       gc.restore()
     }
 
+    protected def draw(): Unit = {
+      val gc = getGraphicsContext2D
+      val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
+        xLower.value, xUpper.value, yLower.value, yUpper.value)
+
+      gc.clearRect(0, 0, scale.width, scale.height)
+
+      val (priorTime, tickTimes) = scale.tickScale.getTicks(
+        dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+      val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
+        dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
+
+//      drawGridlines(gc, scale, tickTimes, contextTimes)
+//      drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
+
+      // TODO proper scales for Y axis
+      gc.fillText(s"${scale.yMax}", 0, scale.height)
+      gc.fillText(s"${scale.yMax}", 0, 10)
+
+      val renderTime = timeExec {
+        datasets.zipWithIndex.foreach { case (dataset, i) =>
+          drawChart(gc, scale, dataset.data, dataset.color, i)
+        }
+      }
+      gc.fillText(f" => ${renderTime * 1000}%.1f ms total render",
+        0, 20 + (datasets.length * 10) + 10)
+    }
+  }
+
+
+  class CursorCanvas extends Canvas {
+    widthProperty.addListener(evt => draw())
+    heightProperty.addListener(evt => draw())
+    xLower.addListener(evt => draw())
+    xUpper.addListener(evt => draw())
+    yLower.addListener(evt => draw())
+    yUpper.addListener(evt => draw())
+
+    cursorXPos.addListener(evt => draw())
+
+    override def isResizable: Boolean = true
+
     protected def drawCursor(gc: GraphicsContext, scale: ChartParameters): Unit = {
       val cursorPos = cursorXPos.value
       val cursorTime = scale.xPosToVal(cursorPos)
@@ -287,48 +337,23 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
       gc.clearRect(0, 0, scale.width, scale.height)
 
-      // actually draw everything
-//      timeGridImage match {
-//        case Some(timeGridImage) =>
-//          gc.drawImage(timeGridImage, 0, 0)
-//        case None => // redraw the time grid
-//
-////          timeGridImage = Some(canvas.snapshot(new SnapshotParameters, null))
-//      }
-
-      chartImage match {
-        case Some(chartImage) =>
-          gc.drawImage(chartImage, 0, 0)
-        case None =>
-          val (priorTime, tickTimes) = scale.tickScale.getTicks(
-            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
-          val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
-            dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
-
-          drawGridlines(gc, scale, tickTimes, contextTimes)
-          drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
-
-          // TODO proper scales for Y axis
-          gc.fillText(s"${scale.yMax}", 0, scale.height)
-          gc.fillText(s"${scale.yMax}", 0, 10)
-
-          val renderTime = timeExec {
-            datasets.zipWithIndex.foreach { case (dataset, i) =>
-              drawChart(gc, scale, dataset.data, dataset.color, i)
-            }
-//            chartImage = Some(canvas.snapshot(new SnapshotParameters, null))
-          }
-          gc.fillText(f" => ${renderTime * 1000}%.1f ms total render",
-            0, 20 + (datasets.length * 10) + 10)
-      }
-
       drawCursor(gc, scale)
     }
   }
 
-  val canvas = new ResizableCanvas()
 
-  getChildren.add(canvas)
-  canvas.widthProperty().bind(widthProperty())
-  canvas.heightProperty().bind(heightProperty())
+  val gridCanvas = new GridCanvas()
+  getChildren.add(gridCanvas)
+  gridCanvas.widthProperty().bind(widthProperty())
+  gridCanvas.heightProperty().bind(heightProperty())
+
+  val chartCanvas = new ChartCanvas()
+  getChildren.add(chartCanvas)
+  chartCanvas.widthProperty().bind(widthProperty())
+  chartCanvas.heightProperty().bind(heightProperty())
+
+  val cursorCanvas = new CursorCanvas()
+  getChildren.add(cursorCanvas)
+  cursorCanvas.widthProperty().bind(widthProperty())
+  cursorCanvas.heightProperty().bind(heightProperty())
 }
