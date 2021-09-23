@@ -341,6 +341,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     }
   }
 
+  setMinWidth(0)  // alow resizing down
+  setMinHeight(0)  // alow resizing down
 
   val gridCanvas = new GridCanvas()
   getChildren.add(gridCanvas)
