@@ -238,7 +238,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
                 val polygonPoints = bottomPoints ++ topPoints.reverse
                 val polygonXs = polygonPoints.map{point => scale.xValToPos(point._1)}.toArray
                 val polygonYs = polygonPoints.map{point => scale.yValToPos(point._2)}.toArray
-                  gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
+//                  gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
               }
           gc.restore()
 
@@ -288,10 +288,18 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       gc.clearRect(0, 0, scale.width, scale.height)
 
       // actually draw everything
-      timeGridImage match {
-        case Some(timeGridImage) =>
-          gc.drawImage(timeGridImage, 0, 0)
-        case None => // redraw the time grid
+//      timeGridImage match {
+//        case Some(timeGridImage) =>
+//          gc.drawImage(timeGridImage, 0, 0)
+//        case None => // redraw the time grid
+//
+////          timeGridImage = Some(canvas.snapshot(new SnapshotParameters, null))
+//      }
+
+      chartImage match {
+        case Some(chartImage) =>
+          gc.drawImage(chartImage, 0, 0)
+        case None =>
           val (priorTime, tickTimes) = scale.tickScale.getTicks(
             dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
           val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
@@ -299,13 +307,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
           drawGridlines(gc, scale, tickTimes, contextTimes)
           drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
-          timeGridImage = Some(canvas.snapshot(new SnapshotParameters, null))
-      }
 
-      chartImage match {
-        case Some(chartImage) =>
-          gc.drawImage(chartImage, 0, 0)
-        case None =>
           // TODO proper scales for Y axis
           gc.fillText(s"${scale.yMax}", 0, scale.height)
           gc.fillText(s"${scale.yMax}", 0, 10)
@@ -314,7 +316,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
             datasets.zipWithIndex.foreach { case (dataset, i) =>
               drawChart(gc, scale, dataset.data, dataset.color, i)
             }
-            chartImage = Some(canvas.snapshot(new SnapshotParameters, null))
+//            chartImage = Some(canvas.snapshot(new SnapshotParameters, null))
           }
           gc.fillText(f" => ${renderTime * 1000}%.1f ms total render",
             0, 20 + (datasets.length * 10) + 10)
