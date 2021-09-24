@@ -39,7 +39,7 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
   // (it can overlap with existing points in the tree)
   // Data must not be empty.
   def appendAll(data: IterableOnce[(BTree.TimestampType, AggregatorType#LeafType)]): Unit = {
-    var remainingData = data.toSeq
+    var remainingData = data.iterator.toSeq
     while (remainingData.nonEmpty) {
       remainingData = root.appendAll(remainingData)
       if (remainingData.nonEmpty) {  // split node and insert new root

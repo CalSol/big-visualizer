@@ -9,7 +9,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
   behavior of "BTree"
 
   it should "push nodeSize items" in {
-    val dataset: Seq[(Long, Float)] = (0 until 4) map {i => (i, i)}
+    val dataset: Seq[(Long, Float)] = (0 until 4) map {i => (i, i.toFloat)}
 
     val tree = new BTree(FloatAggregator.aggregator, 4)
     tree.appendAll(dataset)
@@ -21,7 +21,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
   }
 
   it should "push nodeSize + 1 items" in {
-    val dataset: Seq[(Long, Float)] = (0 until 5) map {i => (i, i)}
+    val dataset: Seq[(Long, Float)] = (0 until 5) map {i => (i, i.toFloat)}
 
     val tree = new BTree(FloatAggregator.aggregator, 4)
     tree.appendAll(dataset)
@@ -34,7 +34,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
 
   it should "push a full two-level tree worth of items" in {
     // leaves would be 2, 2, 2, 4
-    val dataset: Seq[(Long, Float)] = (0 until 10) map {i => (i, i)}
+    val dataset: Seq[(Long, Float)] = (0 until 10) map {i => (i, i.toFloat)}
 
     val tree = new BTree(FloatAggregator.aggregator, 4)
     tree.appendAll(dataset)
@@ -44,7 +44,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.maxDepth should be(2)
     tree.validate() should be (true)
 
-    tree.appendAll(Seq((dataset.length, dataset.length)))
+    tree.appendAll(Seq((dataset.length, dataset.length.toFloat)))
     tree.minTime should be(0)
     tree.maxTime should be(10)
     tree.maxDepth should be(3)
@@ -53,7 +53,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
 
   it should "push a full three-level tree worth of items" in {
     // leaves would be 2 (2, 2), 2 (2, 2), 2 (2, 2), 4 (2, 2, 2, 4)
-    val dataset: Seq[(Long, Float)] = (0 until 22) map {i => (i, i)}
+    val dataset: Seq[(Long, Float)] = (0 until 22) map {i => (i, i.toFloat)}
 
     val tree = new BTree(FloatAggregator.aggregator, 4)
     tree.appendAll(dataset)
@@ -63,7 +63,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.maxDepth should be(3)
     tree.validate() should be (true)
 
-    tree.appendAll(Seq((dataset.length, dataset.length)))
+    tree.appendAll(Seq((dataset.length, dataset.length.toFloat)))
     tree.minTime should be(0)
     tree.maxTime should be(22)
     tree.maxDepth should be(4)
@@ -73,7 +73,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
   it should "push a full three-level tree worth of items, with n=16" in {
     // generalizing from above, most nodes are length 8, except the rightmost ones are length 16
     // so we have a typical tree of 16*8*8, plus 8*8 nodes on rightmost second level, plus 8 nodes on rightmost third level
-    val dataset: Seq[(Long, Float)] = (0 until (16*8*8 + 8*8 + 8)) map {i => (i, i)}
+    val dataset: Seq[(Long, Float)] = (0 until (16*8*8 + 8*8 + 8)) map {i => (i, i.toFloat)}
 
     val tree = new BTree(FloatAggregator.aggregator, 16)
     tree.appendAll(dataset)
@@ -81,7 +81,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.maxDepth should be(3)
     tree.validate() should be (true)
 
-    tree.appendAll(Seq((dataset.length, dataset.length)))
+    tree.appendAll(Seq((dataset.length, dataset.length.toFloat)))
     tree.maxDepth should be(4)
     tree.validate() should be (true)
   }
@@ -130,14 +130,12 @@ class BTreeTest extends AnyFlatSpec with Matchers {
 
   it should "return getNodes filtering by time, cutting off the start" in {
     val nodes = datasetTree.getData(3, 102, 50)
-    nodes.length should be(3)
+    nodes.length should be(2)
 
-    val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregator]]
-    node0.point should be((2, 2))
-    val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregator]]
+    val node1 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregator]]
     node1.point should be((100, 3))
 
-    val node2 = nodes(2).asInstanceOf[BTreeNode[FloatAggregator]]
+    val node2 = nodes(1).asInstanceOf[BTreeNode[FloatAggregator]]
     node2.minTime should be(101)
     node2.maxTime should be(124)
     node2.nodeData.count should be(10)
@@ -162,11 +160,9 @@ class BTreeTest extends AnyFlatSpec with Matchers {
 
   it should "return getNodes filtering by time, cutting off both start and end" in {
     val nodes = datasetTree.getData(3, 101, 50)
-    nodes.length should be(2)
+    nodes.length should be(1)
 
-    val node0 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregator]]
-    node0.point should be((2, 2))
-    val node1 = nodes(1).asInstanceOf[BTreeLeaf[FloatAggregator]]
+    val node1 = nodes(0).asInstanceOf[BTreeLeaf[FloatAggregator]]
     node1.point should be((100, 3))
   }
 }

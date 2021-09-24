@@ -65,7 +65,7 @@ case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin
   val tickScale: AxisScale = AxisScales.getScaleWithBestSpan((64 / xScale).toLong)
   val contextScale: ContextAxisScale = AxisScales.getContextScale(tickScale)
 
-  def xValToPos(value: Double): Double = (value - xMin) * xScale
+  def xValToPos(value: Long): Double = (value - xMin) * xScale
   def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xMin
   def yValToPos(value: Double): Double = (yMax - value) * yScale
 }

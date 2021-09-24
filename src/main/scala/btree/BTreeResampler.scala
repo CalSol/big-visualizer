@@ -29,7 +29,7 @@ object BTreeResampler {
         } else {
           (Some(prevBegin), false)
         }
-      case (Some(prevBegin), elem: BTreeNode[AggregatorType]) =>
+      case (Some(prevBegin), elem: BTreeAggregate[AggregatorType]) =>
         if ((elem.maxTime - prevBegin > minResolution) ||
             (elem.maxTime % minResolution < prevBegin % minResolution)) {
           (None, true)
