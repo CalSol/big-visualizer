@@ -3,7 +3,16 @@ package bigvis
 import scala.collection.mutable
 
 object ChunkSeq {
-  // Splits arrays based on some logic applied for each pair
+  /** Splits arrays based on some logic applied for each pair
+   *
+   * @param fn function that takes in:
+   *           prev: the initVal (on the first element) or the next value (from the previous iteration)
+   *           elem: the seq (input) element being processed
+   *         and returns:
+   *           next: the prev value to pass into the next iteration
+   *           split: whether this element begins a new sub-sequence
+   */
+
   def apply[ElemType, DataType](seq: Seq[ElemType], initVal: DataType,
                                 fn: (DataType, ElemType) => (DataType, Boolean)): Seq[Seq[ElemType]] = {
     val outputBuilder = mutable.ArrayBuffer[Seq[ElemType]]()
