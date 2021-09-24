@@ -88,7 +88,9 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
       } else {
         node match {
           case node: BTreeIntermediateNode[AggregatorType] => node.nodes.toSeq.flatMap(traverse)
-          case node: BTreeLeafNode[AggregatorType] => node.leaves.toSeq.map {
+          case node: BTreeLeafNode[AggregatorType] => node.leaves.toSeq.filter { case (time, data) =>
+            time >= startTime && time <= endTime
+          }.map {
             new BTreeLeaf[AggregatorType](_)
           }
         }
@@ -105,19 +107,26 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
   def validate(): Boolean = root.validate()
 }
 
-sealed abstract class BTreeData[AggregatorType <: BTreeAggregator]
+sealed trait BTreeData[AggregatorType <: BTreeAggregator]
 
 class BTreeLeaf[AggregatorType <: BTreeAggregator](val point: (BTree.TimestampType, AggregatorType#LeafType))
     extends BTreeData[AggregatorType] {
 }
 
-// Internal data structure, base class for a tree node
-sealed abstract class BTreeNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
-    extends BTreeData[AggregatorType] {
+sealed trait BTreeAggregate[AggregatorType <: BTreeAggregator] extends BTreeData[AggregatorType] {
   def minTime: BTree.TimestampType  // returns the lowest timestamp in this node
   def maxTime: BTree.TimestampType  // returns the highest timestamp in this node
   def nodeData: AggregatorType#NodeType  // return the aggregate data
+}
 
+class BTreeResampledNode[AggregatorType <: BTreeAggregator](
+    val minTime: BTree.TimestampType, val maxTime: BTree.TimestampType, val nodeData: AggregatorType#NodeType)
+    extends BTreeAggregate[AggregatorType]
+
+
+// Internal data structure, base class for a tree node
+sealed abstract class BTreeNode[AggregatorType <: BTreeAggregator]
+    extends BTreeAggregate[AggregatorType] {
   // The initial / down (from root) pass to insert data
   // The data passed into each node must be the data to be inserted into it, it is the caller's
   // responsibility that the right data gets to the right sub-node
@@ -134,7 +143,7 @@ sealed abstract class BTreeNode[AggregatorType <: BTreeAggregator](root: BTree[A
 
 // B-tree node that contains an array of leaves
 class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
-    extends BTreeNode[AggregatorType](root) {
+    extends BTreeNode[AggregatorType] {
   protected[bigvis] var leaves = mutable.ArrayBuffer[(BTree.TimestampType, AggregatorType#LeafType)]()
   protected var internalNodeData: Option[AggregatorType#NodeType] = None  // intermediate node data
   override def nodeData: AggregatorType#NodeType = internalNodeData.get
@@ -202,7 +211,7 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
 
 // B-tree node that contains an array of other nodes
 class BTreeIntermediateNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
-    extends BTreeNode[AggregatorType](root) {
+    extends BTreeNode[AggregatorType] {
   protected[bigvis] var nodes = mutable.ArrayBuffer[BTreeNode[AggregatorType]]()
   protected var internalNodeData: Option[AggregatorType#NodeType] = None  // intermediate node data
   override def nodeData: AggregatorType#NodeType = internalNodeData.get

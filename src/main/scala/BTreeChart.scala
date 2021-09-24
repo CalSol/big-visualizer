@@ -195,7 +195,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       val (sectionTime, sections) = timeExec {
         ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
           elem match {
-            case node: BTreeNode[FloatAggregator] =>
+            case node: BTreeAggregate[FloatAggregator] =>
               (node.maxTime, node.minTime > prevTime + timeBreak)
             case node: BTreeLeaf[FloatAggregator] => // TODO return individual data points
               (node.point._1, node.point._1 > prevTime + timeBreak)
@@ -236,7 +236,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
           // render the data / average lines
           val sectionPoints = section.map {
-            case node: BTreeNode[FloatAggregator] =>
+            case node: BTreeAggregate[FloatAggregator] =>
               ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
             case node: BTreeLeaf[FloatAggregator] =>
               // TODO only render at some density instead of by B-tree?
