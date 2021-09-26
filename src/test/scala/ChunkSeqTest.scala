@@ -32,7 +32,7 @@ class ChunkSeqTest extends AnyFlatSpec with Matchers {
 
   it should "preserve stateful data" in {
     ChunkSeq[Int, Int](0 until 4, 0, (data, elem) => (data + 1, data == 1)) should equal(
-      Seq(Seq(0, 1), Seq(2, 3))
+      Seq(Seq(0), Seq(1, 2, 3))
     )
   }
 }

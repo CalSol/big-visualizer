@@ -186,13 +186,15 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   class ChartCanvas extends ResizableCanvas {
     // Actual rendering functions
     protected def drawChart(gc: GraphicsContext, scale: ChartParameters, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
+      val minResolution = scale.xRange / scale.width
+
       val (nodeTime, nodes) = timeExec {
         // TODO
-        series.getData(scale.xMin, scale.xMax, (scale.xRange.toDouble / scale.width).toLong)
+        series.getData(scale.xMin, scale.xMax, minResolution)
       }
 
       // filter nodes into break-able sections
-      val (sectionTime, sections) = timeExec {
+      val (sectionTime, rawSections) = timeExec {
         ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
           elem match {
             case node: BTreeAggregate[FloatAggregator] =>
@@ -201,6 +203,12 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
               (node.point._1, node.point._1 > prevTime + timeBreak)
           }
         })
+      }
+
+      val (resampleTime, sections) = timeExec {
+        rawSections.map { rawSection =>
+          BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution)
+        }
       }
 
       gc.save()
@@ -258,6 +266,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       gc.fillText(f"${(nodeTime + sectionTime + renderTime) * 1000}%.1f ms total    " +
           f"${nodeTime * 1000}%.1f ms nodes, " +
           f"${sectionTime * 1000}%.1f ms sections, " +
+          f"${resampleTime * 1000}%.1f ms resample, " +
           f"${renderTime * 1000}%.1f ms render    " +
           f"${nodes.length} nodes, ${sections.length} sections",
         0, 20 + (offset * 10))
