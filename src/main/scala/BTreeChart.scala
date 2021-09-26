@@ -75,6 +75,7 @@ case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin
   // TODO parameterized
   val tickScale: AxisScale = AxisScales.getScaleWithBestSpan((64 / xScale).toLong)
   val contextScale: ContextAxisScale = AxisScales.getContextScale(tickScale)
+  val finerScale: ContextAxisScale = AxisScales.getFinerScale(tickScale)
 
   def xValToPos(value: Long): Double = (value - xMin) * xScale
   def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xMin
@@ -289,19 +290,15 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
 
   class CursorCanvas extends ResizableCanvas {
-    protected def drawCursor(gc: GraphicsContext, scale: ChartParameters): Unit = {
-      val cursorPos = cursorXPos.value
-      val cursorTime = scale.xPosToVal(cursorPos)
-      gc.strokeLine(cursorPos, 0, cursorPos, scale.height)
-      gc.strokeText(s"${cursorTime}", cursorPos, scale.height - 60)
-    }
-
-    def draw(scale: ChartParameters): Unit = {
+    def draw(scale: ChartParameters, cursorPos: Double): Unit = {
       val gc = getGraphicsContext2D
 
       gc.clearRect(0, 0, scale.width, scale.height)
 
-      drawCursor(gc, scale)
+      val cursorTime = scale.xPosToVal(cursorPos)
+      gc.strokeLine(cursorPos, 0, cursorPos, scale.height)
+      gc.strokeText(s"${scale.finerScale.getPostfixString(dateTimeFromTimestamp(cursorTime))}",
+        cursorPos, scale.height - 60)
     }
   }
 
@@ -409,6 +406,6 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   }
 
   protected def redrawCursor(scale: ChartParameters): Unit = {
-    cursorCanvas.draw(scale)
+    cursorCanvas.draw(scale, cursorXPos.value)
   }
 }

@@ -195,12 +195,22 @@ object AxisScales {
   }
 
   // Picks the context scale for the given scale - typically the one one chrono unit coarser
-  // (eg, hours if the input is minutes or 10 minutes )
+  // (eg, hours if the input is minutes or 10 minutes)
   def getContextScale(scale: AxisScale): ContextAxisScale = {
     val scaleIndex = all.indexOf(scale)
     val truncated = all.dropRight(all.length - scaleIndex)  // drop the input scale and all finer
     truncated.collect {
       case x: ContextAxisScale => x
     }.lastOption.getOrElse(all.head.asInstanceOf[ContextAxisScale])
+  }
+
+  // Picks the finer context scale for a given scale - the chrono unit at or finer than the next scale.
+  // (eg, minutes if the input is 10 minutes, or seconds if the input is seconds)
+  def getFinerScale(scale: AxisScale): ContextAxisScale = {
+    val scaleIndex = all.indexOf(scale)
+    val truncated = all.drop(scaleIndex + 1)  // drop the input scale and all coarser
+    truncated.collectFirst {
+      case x: ContextAxisScale => x
+    }.getOrElse(all.tail.asInstanceOf[ContextAxisScale])
   }
 }
