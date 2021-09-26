@@ -8,6 +8,7 @@ import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
+import scala.collection.mutable
 
 
 object RenderHelper {
@@ -38,6 +39,16 @@ case class ChartDefinition(
     data: BTree[FloatAggregator],
     color: Color
 )
+
+
+case class ChartMetadata(
+                      nodeTime: Double,
+                      sectionTime: Double,
+                      resampleTime: Double,
+                      nodes: Long,
+                      resampledNodes: Long
+                      )
+
 
 object ChartTools {
   // Using the golden ratio method to generate chart colors, from
@@ -88,6 +99,9 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   val yUpper: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.max).max)
 
   val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
+
+  // Processed data displayed by the current window
+  val windowSections: mutable.HashMap[String, Seq[Seq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
 
   // Rendering properties
   protected val GRIDLINE_ALPHA = 0.25
@@ -185,32 +199,10 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
   class ChartCanvas extends ResizableCanvas {
     // Actual rendering functions
-    protected def drawChart(gc: GraphicsContext, scale: ChartParameters, series: BTree[FloatAggregator], chartColor: Color, offset: Int): Unit = {
-      val minResolution = scale.xRange / scale.width
-
-      val (nodeTime, nodes) = timeExec {
-        // TODO
-        series.getData(scale.xMin, scale.xMax, minResolution)
-      }
-
-      // filter nodes into break-able sections
-      val (sectionTime, rawSections) = timeExec {
-        ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
-          elem match {
-            case node: BTreeAggregate[FloatAggregator] =>
-              (node.maxTime, node.minTime > prevTime + timeBreak)
-            case node: BTreeLeaf[FloatAggregator] => // TODO return individual data points
-              (node.point._1, node.point._1 > prevTime + timeBreak)
-          }
-        })
-      }
-
-      val (resampleTime, sections) = timeExec {
-        rawSections.map { rawSection =>
-          BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution)
-        }
-      }
-
+    protected def drawChart(gc: GraphicsContext, scale: ChartParameters,
+                            sections: Seq[Seq[BTreeData[FloatAggregator]]], chartColor: Color,
+                            chartMetadata: ChartMetadata,
+                            offset: Int): Unit = {
       gc.save()
       gc.setFill(chartColor)
       gc.setStroke(chartColor)
@@ -262,19 +254,21 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
         }
       }
 
+      val totalTime = chartMetadata.nodeTime + chartMetadata.sectionTime + chartMetadata.resampleTime + renderTime
       // render debugging information
-      gc.fillText(f"${(nodeTime + sectionTime + renderTime) * 1000}%.1f ms total    " +
-          f"${nodeTime * 1000}%.1f ms nodes, " +
-          f"${sectionTime * 1000}%.1f ms sections, " +
-          f"${resampleTime * 1000}%.1f ms resample, " +
+      gc.fillText(f"${totalTime * 1000}%.1f ms total    " +
+          f"${chartMetadata.nodeTime * 1000}%.1f ms nodes, " +
+          f"${chartMetadata.sectionTime * 1000}%.1f ms sections, " +
+          f"${chartMetadata.resampleTime * 1000}%.1f ms resample, " +
           f"${renderTime * 1000}%.1f ms render    " +
-          f"${nodes.length} -> ${sections.map(_.length).sum} nodes, ${sections.length} sections",
+          f"${chartMetadata.nodes} -> ${chartMetadata.resampledNodes} nodes",
         0, 20 + (offset * 10))
 
       gc.restore()
     }
 
-    def draw(scale: ChartParameters): Unit = {
+    def draw(scale: ChartParameters,
+             charts: Seq[(ChartDefinition, ChartMetadata, Seq[Seq[BTreeData[FloatAggregator]]])]): Unit = {
       val gc = getGraphicsContext2D
 
       gc.clearRect(0, 0, scale.width, scale.height)
@@ -284,8 +278,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       gc.fillText(s"${scale.yMax}", 0, 10)
 
       val renderTime = timeExec {
-        datasets.zipWithIndex.foreach { case (dataset, i) =>
-          drawChart(gc, scale, dataset.data, dataset.color, i)
+        charts.zipWithIndex.foreach { case ((dataset, metadata, sections), i) =>
+          drawChart(gc, scale, sections, dataset.color, metadata, i)
         }
       }
       gc.fillText(f" => ${renderTime * 1000}%.1f ms total render",
@@ -311,6 +305,41 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     }
   }
 
+  // Given a set of parameters (defining the window and resolution) and a data series (BTree),
+  // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
+  def getData(scale: ChartParameters, series: BTree[FloatAggregator]):
+      (Seq[Seq[BTreeData[FloatAggregator]]], ChartMetadata) = {
+    val minResolution = scale.xRange / scale.width
+
+    val (nodeTime, nodes) = timeExec {
+      // TODO
+      series.getData(scale.xMin, scale.xMax, minResolution)
+    }
+
+    // filter nodes into break-able sections
+    val (sectionTime, rawSections) = timeExec {
+      ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
+        elem match {
+          case node: BTreeAggregate[FloatAggregator] =>
+            (node.maxTime, node.minTime > prevTime + timeBreak)
+          case node: BTreeLeaf[FloatAggregator] => // TODO return individual data points
+            (node.point._1, node.point._1 > prevTime + timeBreak)
+        }
+      })
+    }
+
+    val (resampleTime, sections) = timeExec {
+      rawSections.map { rawSection =>
+        BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution)
+      }
+    }
+
+    val chartMetadata = ChartMetadata(nodeTime, sectionTime, resampleTime,
+      nodes.length, sections.map(_.length).sum)
+
+    (sections, chartMetadata)
+  }
+
   setMinWidth(0)  // alow resizing down
   setMinHeight(0)  // alow resizing down
 
@@ -329,37 +358,57 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   cursorCanvas.widthProperty().bind(widthProperty())
   cursorCanvas.heightProperty().bind(heightProperty())
 
-  widthProperty.addListener(_ => redrawGrid())
-  heightProperty.addListener(_ => redrawGrid())
-  xLower.addListener(_ => redrawGrid())
-  xUpper.addListener(_ => redrawGrid())
+  widthProperty.addListener(_ => redrawFromGrid())
+  heightProperty.addListener(_ => redrawFromGrid())
+  xLower.addListener(_ => redrawFromGrid())
+  xUpper.addListener(_ => redrawFromGrid())
 
-  yLower.addListener(_ => redrawChart())
-  yUpper.addListener(_ => redrawChart())
+  yLower.addListener(_ => redrawFromChart())
+  yUpper.addListener(_ => redrawFromChart())
 
-  cursorXPos.addListener(_ => redrawCursor())
+  cursorXPos.addListener(_ => redrawFromCursor())
 
-  def redrawGrid(): Unit = {
+  def redrawFromGrid(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
       xLower.value, xUpper.value, yLower.value, yUpper.value)
+    redrawGrid(scale)
+    redrawChart(scale)
+    redrawGrid(scale)
+  }
+
+  def redrawFromChart(): Unit = {
+    // TODO can we dedup some of these?
+    val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
+      xLower.value, xUpper.value, yLower.value, yUpper.value)
+    redrawChart(scale)
+    redrawCursor(scale)
+  }
+
+  def redrawFromCursor(): Unit = {
+    // TODO can we dedup some of these?
+    val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
+      xLower.value, xUpper.value, yLower.value, yUpper.value)
+    redrawCursor(scale)
+  }
+
+  protected def redrawGrid(scale: ChartParameters): Unit = {
     gridCanvas.draw(scale)
-    chartCanvas.draw(scale)
-    cursorCanvas.draw(scale)
   }
 
-  def redrawChart(): Unit = {
-    // TODO can we dedup some of these?
-    val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value)
-    chartCanvas.draw(scale)
-    cursorCanvas.draw(scale)
+  // Refresh the windowSections 'cache' and redraw the chart
+  protected def redrawChart(scale: ChartParameters): Unit = {
+    windowSections.clear()
+    val charts = datasets.map { dataset =>
+      val (sections, chartMetadata) = getData(scale, dataset.data)
+      windowSections.put(dataset.name, sections)
+      (dataset, chartMetadata, sections)
+    }
+
+    chartCanvas.draw(scale, charts)
   }
 
-  def redrawCursor(): Unit = {
-    // TODO can we dedup some of these?
-    val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value)
+  protected def redrawCursor(scale: ChartParameters): Unit = {
     cursorCanvas.draw(scale)
   }
 }
