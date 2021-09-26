@@ -3,7 +3,8 @@ package bigvis
 import scala.collection.mutable
 
 object ChunkSeq {
-  /** Splits arrays based on some logic applied for each pair
+  /** Splits arrays based on some logic applied for each pair.
+   * If the first element returns to split, the first element of the output is an empty Seq.
    *
    * @param fn function that takes in:
    *           prev: the initVal (on the first element) or the next value (from the previous iteration)
@@ -22,8 +23,7 @@ object ChunkSeq {
     } else {
       var prevElem = seq.head
       var prevData = initVal
-      elemBuilder.append(prevElem)
-      seq.tail.foreach { elem =>
+      seq.foreach { elem =>
         val (newData, split) = fn(prevData, elem)
         if (split) {
           outputBuilder.append(elemBuilder.toSeq)
