@@ -268,7 +268,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
           f"${sectionTime * 1000}%.1f ms sections, " +
           f"${resampleTime * 1000}%.1f ms resample, " +
           f"${renderTime * 1000}%.1f ms render    " +
-          f"${nodes.length} nodes, ${sections.length} sections",
+          f"${nodes.length} -> ${sections.map(_.length).sum} nodes, ${sections.length} sections",
         0, 20 + (offset * 10))
 
       gc.restore()
