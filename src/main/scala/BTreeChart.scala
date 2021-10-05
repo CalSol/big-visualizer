@@ -8,6 +8,7 @@ import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
+import scala.collection.Searching.{Found, InsertionPoint}
 import scala.collection.mutable
 
 
@@ -223,6 +224,35 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   }
 
   protected def redrawCursor(scale: ChartParameters): Unit = {
-    cursorCanvas.draw(scale, cursorXPos.value)
+    val cursorPos = cursorXPos.value
+    val cursorTime = scale.xPosToVal(cursorPos)
+
+    // TODO get rod of the null
+    val searchPoint: BTreeData[FloatAggregator] =
+      new BTreeResampledNode[FloatAggregator](cursorTime, cursorTime, null)
+
+    def dataToStartTime(data: BTreeData[FloatAggregator]): Long = data match {
+      case leaf: BTreeLeaf[FloatAggregator] => leaf.point._1
+      case aggr: BTreeAggregate[FloatAggregator] => aggr.minTime
+    }
+
+    val datasetValues = datasets.map { dataset =>
+      val data = windowSections.get(dataset.name).map { sections =>
+        // Find the section containing the requested time point
+        val section = sections.search(Seq(searchPoint))(Ordering.by(e => dataToStartTime(e.head))) match {
+          case Found(foundIndex) => sections(foundIndex)
+          case InsertionPoint(insertionPoint) => sections(insertionPoint)  // TODO more robust =o
+        }
+        // Then find the data point within the section
+        val data = section.search(searchPoint)(Ordering.by(dataToStartTime)) match {
+          case Found(foundIndex) => section(foundIndex)
+          case InsertionPoint(insertionPoint) => section(insertionPoint)
+        }
+        data
+      }
+      // TODO discard option None case here
+      (dataset, data)
+    }
+    cursorCanvas.draw(scale, cursorPos, datasetValues)
   }
 }
