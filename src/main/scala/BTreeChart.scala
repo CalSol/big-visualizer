@@ -115,13 +115,13 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
 
   // Processed data displayed by the current window
-  val windowSections: mutable.HashMap[String, Seq[Seq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
+  val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
 
 
   // Given a set of parameters (defining the window and resolution) and a data series (BTree),
   // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
   def getData(scale: ChartParameters, series: BTree[FloatAggregator]):
-      (Seq[Seq[BTreeData[FloatAggregator]]], ChartMetadata) = {
+      (IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]], ChartMetadata) = {
     val minResolution = scale.xRange / scale.width
 
     val (nodeTime, nodes) = timeExec {
@@ -141,10 +141,10 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       })
     }
 
-    val (resampleTime, sections) = timeExec {
+    val (resampleTime, sections) = timeExec {  // TODO create IndexedSeqs earlier?
       rawSections.map { rawSection =>
-        BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution)
-      }
+        BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution).toIndexedSeq
+      }.toIndexedSeq
     }
 
     val chartMetadata = ChartMetadata(nodeTime, sectionTime, resampleTime,
@@ -237,18 +237,40 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     }
 
     val datasetValues = datasets.map { dataset =>
-      val data = windowSections.get(dataset.name).map { sections =>
+      val data = windowSections.get(dataset.name).flatMap { sections =>
         // Find the section containing the requested time point
-        val section = sections.search(Seq(searchPoint))(Ordering.by(e => dataToStartTime(e.head))) match {
-          case Found(foundIndex) => sections(foundIndex)
-          case InsertionPoint(insertionPoint) => sections(insertionPoint)  // TODO more robust =o
+        // TODO we actually want to find nearest, instead of insertion-point
+        sections.search(Seq(searchPoint))(Ordering.by(e => dataToStartTime(e.head))) match {
+          case Found(foundIndex) =>
+            Some(sections(foundIndex))
+          case InsertionPoint(insertionPoint) if insertionPoint > 0 =>
+            Some(sections(insertionPoint - 1))  // we leave the actual filtering to the next section
+          case _ => None
         }
+      }.flatMap { section =>
         // Then find the data point within the section
-        val data = section.search(searchPoint)(Ordering.by(dataToStartTime)) match {
-          case Found(foundIndex) => section(foundIndex)
-          case InsertionPoint(insertionPoint) => section(insertionPoint)
+        section.search(searchPoint)(Ordering.by(dataToStartTime)) match {
+          case Found(foundIndex) =>
+            Some(section(foundIndex))
+          case InsertionPoint(insertionPoint) if insertionPoint > 0 =>
+            val point = section(insertionPoint - 1)
+            point match {
+              case leaf: BTreeLeaf[FloatAggregator] =>
+                val tolerance = 5 / scale.xScale  // TODO configurable parameter
+                if (cursorTime - tolerance <= leaf.point._1  && leaf.point._1 <= cursorTime + tolerance) {
+                  Some(leaf)
+                } else {
+                  None
+                }
+              case aggr: BTreeAggregate[FloatAggregator] =>  // require exact contains
+                if (aggr.minTime <= cursorTime && cursorTime <= aggr.maxTime) {
+                  Some(aggr)
+                } else {
+                  None
+                }
+            }
+          case _ => None
         }
-        data
       }
       // TODO discard option None case here
       (dataset, data)
