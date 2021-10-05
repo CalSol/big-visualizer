@@ -65,7 +65,8 @@ object ChartTools {
 }
 
 
-case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin: Double, yMax: Double) {
+case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin: Double, yMax: Double,
+                           timeZone: ZoneId) {
   val xRange: Long = xMax - xMin
   val xScale: Double = width.toDouble / xRange  // multiply time units by this to get offset in pixels
   val yRange: Double = yMax - yMin
@@ -80,6 +81,17 @@ case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin
   def xValToPos(value: Long): Double = (value - xMin) * xScale
   def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xMin
   def yValToPos(value: Double): Double = (yMax - value) * yScale
+
+  // TODO is this the right place for these functions to live?
+  def timestampFromDateTime(dateTime: ZonedDateTime): Long = {
+    val utcDateTime = dateTime.withZoneSameInstant(ZoneOffset.UTC)
+    utcDateTime.toEpochSecond * 1000 + utcDateTime.getNano / 1000 / 1000
+  }
+
+  def dateTimeFromTimestamp(timestamp: Long): ZonedDateTime = {
+    val utcDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)
+    utcDateTime.withZoneSameInstant(timeZone)
+  }
 }
 
 
@@ -105,98 +117,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   val windowSections: mutable.HashMap[String, Seq[Seq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
 
   // Rendering properties
-  protected val GRIDLINE_ALPHA = 0.25
-  protected val CONTEXT_GRIDLINE_WIDTH = 2
-
-  protected val CONTRAST_BACKGROUND = Color.rgb(255, 255, 255, 0.75)
-
   protected val AGGREGATE_ALPHA = 0.33
-
-  def timestampFromDateTime(dateTime: ZonedDateTime): Long = {
-    val utcDateTime = dateTime.withZoneSameInstant(ZoneOffset.UTC)
-    utcDateTime.toEpochSecond * 1000 + utcDateTime.getNano / 1000 / 1000
-  }
-
-  def dateTimeFromTimestamp(timestamp: Long): ZonedDateTime = {
-    val utcDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC)
-    utcDateTime.withZoneSameInstant(ZoneId.of(ZoneId.SHORT_IDS.get("CST")))
-  }
-
-  class GridCanvas extends ResizableCanvas {
-    protected def drawGridlines(gc: GraphicsContext, scale: ChartParameters,
-                                tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
-      gc.save()
-      gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, GRIDLINE_ALPHA))
-
-      // draw the context gridlines
-      gc.save()
-      gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
-      contextTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        gc.strokeLine(position, 0, position, scale.height)
-      }
-      gc.restore()
-
-      // draw the ticklines
-      tickTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        gc.strokeLine(position, 0, position, scale.height)
-      }
-
-      gc.restore()
-    }
-
-    protected def drawRulers(gc: GraphicsContext, scale: ChartParameters,
-                             priorContextTime: ZonedDateTime,
-                             tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
-      gc.save()
-      gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
-      contextTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
-          position, scale.height - 20,
-          position, scale.height)
-      }
-      gc.restore()
-
-      // for positioning the fenceposts
-      val paddedContextPositions = scale.xMin +: (contextTimes.map(timestampFromDateTime) :+ scale.xMax)
-      // for the actual labels - this goes between the fenceposts so has one less entry
-      val paddedContextLabels = priorContextTime +: contextTimes
-
-      (paddedContextPositions.sliding(2) zip paddedContextLabels).foreach { case (Seq(currPos, nextPos), label) =>
-        val position = scale.xValToPos((currPos + nextPos) / 2)
-        // TODO anchor center
-        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.contextScale.getPrefixString(label),
-          position, scale.height - 10)
-      }
-
-      // draw tick ruler
-      tickTimes.foreach { tickTime =>
-        val position = scale.xValToPos(timestampFromDateTime(tickTime))
-        RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
-          position, scale.height - 30,
-          position, scale.height - 20)
-        RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.tickScale.getPostfixString(tickTime),
-          position + 4, scale.height - 20)
-      }
-    }
-
-    def draw(scale: ChartParameters): Unit = {
-      val gc = getGraphicsContext2D
-
-      gc.clearRect(0, 0, scale.width, scale.height)
-
-      val (priorTime, tickTimes) = scale.tickScale.getTicks(
-        dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
-      val (priorContextTime, contextTimes) = scale.contextScale.getTicks(
-        dateTimeFromTimestamp(scale.xMin), dateTimeFromTimestamp(scale.xMax))
-
-      drawGridlines(gc, scale, tickTimes, contextTimes)
-      drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
-
-    }
-  }
 
   class ChartCanvas extends ResizableCanvas {
     // Actual rendering functions
@@ -297,7 +218,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
       val cursorTime = scale.xPosToVal(cursorPos)
       gc.strokeLine(cursorPos, 0, cursorPos, scale.height)
-      gc.strokeText(s"${scale.finerScale.getPostfixString(dateTimeFromTimestamp(cursorTime))}",
+      gc.strokeText(s"${scale.finerScale.getPostfixString(scale.dateTimeFromTimestamp(cursorTime))}",
         cursorPos, scale.height - 60)
     }
   }
@@ -365,10 +286,12 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
   cursorXPos.addListener(_ => redrawFromCursor())
 
+  val timeZone = ZoneId.of(ZoneId.SHORT_IDS.get("CST"))  // TODO user-configurable
+
   def redrawFromGrid(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value)
+      xLower.value, xUpper.value, yLower.value, yUpper.value, timeZone)
     redrawGrid(scale)
     redrawChart(scale)
     redrawGrid(scale)
@@ -377,7 +300,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   def redrawFromChart(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value)
+      xLower.value, xUpper.value, yLower.value, yUpper.value, timeZone)
     redrawChart(scale)
     redrawCursor(scale)
   }
@@ -385,7 +308,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   def redrawFromCursor(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value)
+      xLower.value, xUpper.value, yLower.value, yUpper.value, timeZone)
     redrawCursor(scale)
   }
 
