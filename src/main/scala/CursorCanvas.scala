@@ -20,12 +20,12 @@ class CursorCanvas extends ResizableCanvas {
       case (dataset, Some(leaf: BTreeLeaf[FloatAggregator])) =>
         val value = leaf.point._2
         gc.setFill(dataset.color)
-        gc.fillText(f"${dataset.name} = ${value}%.3g",
+        gc.fillText(f"${dataset.name} = ${value}%.5g",
           cursorPos, scale.yValToPos(value))
       case (dataset, Some(aggr: BTreeAggregate[FloatAggregator])) =>
         val value = aggr.nodeData.sum / aggr.nodeData.count
         gc.setFill(dataset.color)
-        gc.fillText(f"${dataset.name} = ${value}%.3g",
+        gc.fillText(f"${dataset.name} = ${value}%.5g",
           cursorPos, scale.yValToPos(value))
       case (dataset, None) =>  // discard
     }
