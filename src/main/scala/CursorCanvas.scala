@@ -3,9 +3,21 @@ package bigvis
 import btree.{BTreeAggregate, BTreeData, BTreeLeaf, FloatAggregator}
 
 
+object CursorCanvas {
+  /** Given a list of originalPositions, spreads them out such that they are at least minSpread apart
+   * while bounded by min and max.
+   */
+  def spreadPositions(originalPositions: Seq[Double], minSpread: Double, min: Double, max: Double): Seq[Double] = {
+    originalPositions
+  }
+}
+
+
 class CursorCanvas extends ResizableCanvas {
+  import CursorCanvas._
+
   def draw(scale: ChartParameters, cursorPos: Double,
-           datasetValues: Seq[(ChartDefinition, Option[BTreeData[FloatAggregator]])]): Unit = {
+           datasetData: Seq[(ChartDefinition, Option[BTreeData[FloatAggregator]])]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -15,19 +27,23 @@ class CursorCanvas extends ResizableCanvas {
     gc.fillText(s"${scale.finerScale.getPostfixString(scale.dateTimeFromTimestamp(cursorTime))}",
       cursorPos, scale.height - 60)
 
-    gc.save()
-    datasetValues.foreach {
+    val datasetValues = datasetData.collect {
       case (dataset, Some(leaf: BTreeLeaf[FloatAggregator])) =>
-        val value = leaf.point._2
-        gc.setFill(dataset.color)
-        gc.fillText(f"${dataset.name} = ${value}%.5g",
-          cursorPos, scale.yValToPos(value))
+        (dataset, leaf.point._2)
       case (dataset, Some(aggr: BTreeAggregate[FloatAggregator])) =>
-        val value = aggr.nodeData.sum / aggr.nodeData.count
+        (dataset, aggr.nodeData.sum / aggr.nodeData.count)
+    }
+
+    val originalPositions = datasetValues.map { case (dataset, value) =>
+      scale.yValToPos(value)
+    }
+    val positions = spreadPositions(originalPositions, 10, 0, scale.yMax)
+
+    gc.save()
+    (datasetValues zip positions).foreach { case ((dataset, value), position) =>
         gc.setFill(dataset.color)
         gc.fillText(f"${dataset.name} = ${value}%.5g",
-          cursorPos, scale.yValToPos(value))
-      case (dataset, None) =>  // discard
+          cursorPos, position)
     }
     gc.restore()
   }
