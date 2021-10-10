@@ -7,8 +7,6 @@ import java.time.ZonedDateTime
 
 
 object GridCanvas {
-  protected val CONTRAST_BACKGROUND: Color = Color.rgb(255, 255, 255, 0.75)
-
   protected val GRIDLINE_ALPHA = 0.25
   protected val CONTEXT_GRIDLINE_WIDTH = 2
 }
@@ -47,7 +45,7 @@ class GridCanvas extends ResizableCanvas {
     gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
     contextTimes.foreach { tickTime =>
       val position = scale.xValToPos(scale.timestampFromDateTime(tickTime))
-      RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
+      RenderHelper.drawContrastLine(gc, ChartCommon.CONTRAST_BACKGROUND,
         position, scale.height - 20,
         position, scale.height)
     }
@@ -61,17 +59,17 @@ class GridCanvas extends ResizableCanvas {
     (paddedContextPositions.sliding(2) zip paddedContextLabels).foreach { case (Seq(currPos, nextPos), label) =>
       val position = scale.xValToPos((currPos + nextPos) / 2)
       // TODO anchor center
-      RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.contextScale.getPrefixString(label),
+      RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND, scale.contextScale.getPrefixString(label),
         position, scale.height - 10)
     }
 
     // draw tick ruler
     tickTimes.foreach { tickTime =>
       val position = scale.xValToPos(scale.timestampFromDateTime(tickTime))
-      RenderHelper.drawContrastLine(gc, CONTRAST_BACKGROUND,
+      RenderHelper.drawContrastLine(gc, ChartCommon.CONTRAST_BACKGROUND,
         position, scale.height - 30,
         position, scale.height - 20)
-      RenderHelper.drawContrastText(gc, CONTRAST_BACKGROUND, scale.tickScale.getPostfixString(tickTime),
+      RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND, scale.tickScale.getPostfixString(tickTime),
         position + 4, scale.height - 20)
     }
   }

@@ -12,6 +12,11 @@ import scala.collection.Searching.{Found, InsertionPoint}
 import scala.collection.mutable
 
 
+object ChartCommon {
+  val CONTRAST_BACKGROUND: Color = Color.rgb(255, 255, 255, 0.75)
+}
+
+
 object RenderHelper {
   def drawContrastLine(gc: GraphicsContext, background: Color,
                        x1: Double, y1: Double, x2: Double, y2: Double): Unit = {
@@ -101,11 +106,18 @@ class ResizableCanvas extends Canvas {
 }
 
 
+object BTreeChart {  // rendering properties
+  val PX_PER_POINT = 3.0  // minimum pixels between points - higher increases performance at cost of 'sharpness'
+}
+
+
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
 class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackPane {
+  import BTreeChart._
+
   val xLower: LongProperty = LongProperty(datasets.map(_.data.minTime).min)
   val xUpper: LongProperty = LongProperty(datasets.map(_.data.maxTime).max)
 
@@ -122,10 +134,9 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
   def getData(scale: ChartParameters, series: BTree[FloatAggregator]):
       (IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]], ChartMetadata) = {
-    val minResolution = scale.xRange / scale.width
+    val minResolution = (scale.xRange.toDouble / scale.width * PX_PER_POINT).toLong
 
     val (nodeTime, nodes) = timeExec {
-      // TODO
       series.getData(scale.xMin, scale.xMax, minResolution)
     }
 
@@ -153,8 +164,8 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     (sections, chartMetadata)
   }
 
-  setMinWidth(0)  // alow resizing down
-  setMinHeight(0)  // alow resizing down
+  setMinWidth(0)  // allow resizing down
+  setMinHeight(0)  // allow resizing down
 
   val gridCanvas = new GridCanvas()
   getChildren.add(gridCanvas)

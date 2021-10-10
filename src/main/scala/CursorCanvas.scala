@@ -107,17 +107,18 @@ class CursorCanvas extends ResizableCanvas {
         (dataset, leaf.point._2)
       case (dataset, Some(aggr: BTreeAggregate[FloatAggregator])) =>
         (dataset, aggr.nodeData.sum / aggr.nodeData.count)
-    }
+    }.sortBy(-_._2)
 
     val originalPositions = datasetValues.map { case (dataset, value) =>
       scale.yValToPos(value)
     }
-    val positions = spreadPositions(originalPositions, 10, 0, scale.yMax)
+    val positions = spreadPositions(originalPositions, 12, 0, scale.height)
 
     gc.save()
     (datasetValues zip positions).foreach { case ((dataset, value), position) =>
         gc.setFill(dataset.color)
-        gc.fillText(f"${dataset.name} = ${value}%.5g",
+      RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND,
+          f"${dataset.name} = ${value}%.5g",
           cursorPos, position)
     }
     gc.restore()

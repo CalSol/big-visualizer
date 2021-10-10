@@ -26,30 +26,25 @@ class ChartCanvas extends ResizableCanvas {
     val renderTime = timeExec {
       sections.foreach { section =>
         // render the aggregate ranges
-        val contiguousNodeSubsections = ChunkSeq[BTreeData[FloatAggregator], BTreeData[FloatAggregator]](section, section.head, {
-          case (prev: BTreeNode[FloatAggregator], curr: BTreeNode[FloatAggregator]) => (curr, false)
-          case (prev: BTreeLeaf[FloatAggregator], curr: BTreeLeaf[FloatAggregator]) => (curr, false)
-          case (_, curr) => (curr, true)
-        })
         gc.save()
         gc.setFill(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA))
-        contiguousNodeSubsections
-            .filter(_.head.isInstanceOf[BTreeNode[FloatAggregator]])
-            .asInstanceOf[Seq[Seq[BTreeNode[FloatAggregator]]]]
-            .foreach { subsection =>
-              val bottomPoints = subsection.map { node =>
-                ((node.maxTime + node.minTime) / 2, node.nodeData.min)
-              }
-              val topPoints = subsection.map { node =>
-                ((node.maxTime + node.minTime) / 2, node.nodeData.max)
-              }
-              val polygonPoints = bottomPoints ++ topPoints.reverse
-              val polygonXs = polygonPoints.map{point => scale.xValToPos(point._1)}.toArray
-              val polygonYs = polygonPoints.map{point => scale.yValToPos(point._2)}.toArray
-              //                  gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
-            }
-        gc.restore()
+        val bottomPoints = section.map {
+          case node: BTreeLeaf[FloatAggregator] => (node.point._1, node.point._2)
+          case node: BTreeAggregate[FloatAggregator] => ((node.maxTime + node.minTime) / 2, node.nodeData.min)
 
+        }
+        val topPoints = section.map {
+          case node: BTreeLeaf[FloatAggregator] => (node.point._1, node.point._2)
+          case node: BTreeAggregate[FloatAggregator] => ((node.maxTime + node.minTime) / 2, node.nodeData.max)
+        }
+        val polygonPoints = bottomPoints ++ topPoints.reverse
+        val polygonXs = polygonPoints.map { point => scale.xValToPos(point._1) }.toArray
+        val polygonYs = polygonPoints.map { point => scale.yValToPos(point._2) }.toArray
+        gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
+        gc.restore()
+      }
+
+      sections.foreach { section =>
         // render the data / average lines
         val sectionPoints = section.map {
           case node: BTreeAggregate[FloatAggregator] =>
