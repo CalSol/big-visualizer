@@ -33,11 +33,11 @@ object CursorCanvas {
         (newCenter - halfSize, newCenter + halfSize)
       }
 
-      LabelGroup(newDataMinPos, newDataMaxPos, count + newCount, newViewMinPos, newViewMaxPos)
+      LabelGroup(newDataMinPos, newDataMaxPos, newCount, newViewMinPos, newViewMaxPos)
     }
 
     def overlapsWith(other: LabelGroup): Boolean = {
-
+      !(viewMin >= other.viewMax || other.viewMin >= viewMax)
     }
   }
 
@@ -48,23 +48,42 @@ object CursorCanvas {
    * at the midpoint of the lowest and highest original positions in the merge group.
    * Repeat until there are no more positions to be merged (fixed-point algorithm).
    */
-  def spreadPositions(originalPositions: Seq[Double], minSpread: Double, min: Double, max: Double): Seq[Double] = {
+  def spreadPositions(originalPositions: Seq[Double], spread: Double, min: Double, max: Double): Seq[Double] = {
+    require(originalPositions.sorted == originalPositions, "TODO handle non-sorted input")
+
     var positions = originalPositions.map { pos =>
-      LabelGroup(pos, pos, 1, pos, pos)
+      LabelGroup(pos, pos, 1, pos - spread / 2, pos + spread / 2)
     }
     // Repeatedly merge
     if (positions.nonEmpty) {
-      val newPositions = mutable.ListBuffer[LabelGroup]()
       var done = false
       while (!done) {
+        val newPositions = mutable.ListBuffer[LabelGroup]()
         var last = positions.head
         positions.tail.foreach { next =>
-
+          if (last.overlapsWith(next)) {
+            last = last.mergeWith(next, min, max, spread)
+          } else {
+            newPositions.append(last)
+            last = next
+          }
         }
+        newPositions.append(last)
+
+        if (newPositions == positions) {
+          done = true
+        }
+        positions = newPositions.toSeq
       }
     }
     // Transform to individual coordinates
-    positions
+    val finalPositions = positions.flatMap { group =>
+      (0 until group.count).map { i =>  // return center coordinates
+        group.viewMin + (spread / 2) + (i * spread)
+      }
+    }
+    require(finalPositions.length == originalPositions.length, f"${finalPositions}  ${originalPositions}")
+    finalPositions
   }
 }
 
