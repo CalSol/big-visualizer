@@ -14,6 +14,7 @@ import scala.collection.mutable
 
 object ChartCommon {
   val CONTRAST_BACKGROUND: Color = Color.rgb(255, 255, 255, 0.75)
+  val CURSOR_SNAP_PX = 16
 }
 
 
@@ -246,6 +247,10 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       case leaf: BTreeLeaf[FloatAggregator] => leaf.point._1
       case aggr: BTreeAggregate[FloatAggregator] => aggr.minTime
     }
+    def dataToEndTime(data: BTreeData[FloatAggregator]): Long = data match {
+      case leaf: BTreeLeaf[FloatAggregator] => leaf.point._1
+      case aggr: BTreeAggregate[FloatAggregator] => aggr.maxTime
+    }
 
     val datasetValues = datasets.map { dataset =>
       val data = windowSections.get(dataset.name).flatMap { sections =>
@@ -254,8 +259,26 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
         sections.search(Seq(searchPoint))(Ordering.by(e => dataToStartTime(e.head))) match {
           case Found(foundIndex) =>
             Some(sections(foundIndex))
-          case InsertionPoint(insertionPoint) if insertionPoint > 0 =>
-            Some(sections(insertionPoint - 1))  // we leave the actual filtering to the next section
+          case InsertionPoint(insertionPoint) =>
+            if (insertionPoint > 0 && insertionPoint < sections.length) {  // get closer of this and next
+              val prevPoint = sections(insertionPoint - 1)
+              val nextPoint = sections(insertionPoint)
+              if (dataToStartTime(prevPoint.head) <= cursorTime && cursorTime <= dataToEndTime(prevPoint.last)) {
+                // prefer contained section
+                Some(prevPoint)
+              } else if ((dataToStartTime(nextPoint.head) - cursorTime) <= (cursorTime - dataToEndTime(prevPoint.last))) {
+                // then prefer closest one
+                Some(nextPoint)
+              } else {
+                Some(prevPoint)
+              }
+            } else if (insertionPoint > 0) {
+              Some(sections(insertionPoint - 1))
+            } else if (insertionPoint < sections.length) {
+              Some(sections(insertionPoint))
+            } else {
+              None
+            }
           case _ => None
         }
       }.flatMap { section =>
@@ -267,7 +290,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
             val point = section(insertionPoint - 1)
             point match {
               case leaf: BTreeLeaf[FloatAggregator] =>
-                val tolerance = 5 / scale.xScale  // TODO configurable parameter
+                val tolerance = ChartCommon.CURSOR_SNAP_PX / scale.xScale
                 if (cursorTime - tolerance <= leaf.point._1  && leaf.point._1 <= cursorTime + tolerance) {
                   Some(leaf)
                 } else {

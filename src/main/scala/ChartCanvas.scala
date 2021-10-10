@@ -7,7 +7,7 @@ import javafx.scene.paint.Color
 
 
 object ChartCanvas {
-  protected val AGGREGATE_ALPHA = 0.33
+  protected val AGGREGATE_ALPHA = 0.05
 }
 
 
