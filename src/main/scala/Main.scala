@@ -53,14 +53,15 @@ class SharedAxisCharts extends VBox {
 
     val lastChart = charts.last.chart
 
-    if (event.isControlDown) {  // TODO implement vertical zoom/pan
+    if (event.isShiftDown) {  // TODO implement vertical zoom/pan
+      val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
 
     } else {
 
     }
 
-    val (newLower, newUpper) = if (event.isShiftDown) {  // shift to zoom
-      val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+    val (newLower, newUpper) = if (event.isControlDown) {  // shift to zoom
+      val increment = -event.getDeltaY  // consistent with Chrome's zoom UI
 
       val range = lastChart.xUpper.value - lastChart.xLower.value
       val mouseFrac = event.getX / lastChart.getWidth  // in percent of chart from left
