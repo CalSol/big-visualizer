@@ -8,7 +8,6 @@ import javafx.scene.paint.Color
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
-import scala.collection.Searching.{Found, InsertionPoint}
 import scala.collection.mutable
 
 
@@ -254,55 +253,27 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
     val datasetValues = datasets.map { dataset =>
       val data = windowSections.get(dataset.name).flatMap { sections =>
-        // Find the section containing the requested time point
-        // TODO we actually want to find nearest, instead of insertion-point
-        sections.search(Seq(searchPoint))(Ordering.by(e => dataToStartTime(e.head))) match {
-          case Found(foundIndex) =>
-            Some(sections(foundIndex))
-          case InsertionPoint(insertionPoint) =>
-            if (insertionPoint > 0 && insertionPoint < sections.length) {  // get closer of this and next
-              val prevPoint = sections(insertionPoint - 1)
-              val nextPoint = sections(insertionPoint)
-              if (dataToStartTime(prevPoint.head) <= cursorTime && cursorTime <= dataToEndTime(prevPoint.last)) {
-                // prefer contained section
-                Some(prevPoint)
-              } else if ((dataToStartTime(nextPoint.head) - cursorTime) <= (cursorTime - dataToEndTime(prevPoint.last))) {
-                // then prefer closest one
-                Some(nextPoint)
-              } else {
-                Some(prevPoint)
-              }
-            } else if (insertionPoint > 0) {
-              Some(sections(insertionPoint - 1))
-            } else if (insertionPoint < sections.length) {
-              Some(sections(insertionPoint))
-            } else {
-              None
-            }
-          case _ => None
+        // Find the section nearest the requested time point
+        val sectionsIntervals = sections.map { section =>
+          (dataToStartTime(section.head), dataToEndTime(section.last))
+        }
+        SearchInterval(sectionsIntervals, cursorTime) match {
+          case Some(result: SearchInterval.SearchIntervalResult[Long]) => Some(sections(result.index()))
+          case None => None
         }
       }.flatMap { section =>
         // Then find the data point within the section
-        section.search(searchPoint)(Ordering.by(dataToStartTime)) match {
-          case Found(foundIndex) =>
-            Some(section(foundIndex))
-          case InsertionPoint(insertionPoint) if insertionPoint > 0 =>
-            val point = section(insertionPoint - 1)
-            point match {
-              case leaf: BTreeLeaf[FloatAggregator] =>
-                val tolerance = ChartCommon.CURSOR_SNAP_PX / scale.xScale
-                if (cursorTime - tolerance <= leaf.point._1  && leaf.point._1 <= cursorTime + tolerance) {
-                  Some(leaf)
-                } else {
-                  None
-                }
-              case aggr: BTreeAggregate[FloatAggregator] =>  // require exact contains
-                if (aggr.minTime <= cursorTime && cursorTime <= aggr.maxTime) {
-                  Some(aggr)
-                } else {
-                  None
-                }
-            }
+        val sectionIntervals = section.map { node =>
+          (dataToStartTime(node), dataToEndTime(node))
+        }
+        val tolerance = ChartCommon.CURSOR_SNAP_PX / scale.xScale
+        SearchInterval(sectionIntervals, cursorTime) match {
+          case Some(SearchInterval.ContainedIn(index)) =>
+            Some(section(index))
+          case Some(SearchInterval.NearestBefore(index, distance)) if distance <= tolerance =>
+            Some(section(index))
+          case Some(SearchInterval.NearestAfter(index, distance)) if distance <= tolerance =>
+            Some(section(index))
           case _ => None
         }
       }

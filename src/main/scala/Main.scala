@@ -138,7 +138,7 @@ object Main extends JFXApp {
 
   println("Open file")
   // TODO open all 28
-  val cellTrees = (0 until 2).map{ _ => new BTree(FloatAggregator.aggregator, 16) }
+  val cellTrees = (0 until 4).map{ _ => new BTree(FloatAggregator.aggregator, 16) }
 
   {
     val cellArrs = cellTrees.map{ _ => new mutable.ArrayBuffer[(TimestampType, Float)]() }
