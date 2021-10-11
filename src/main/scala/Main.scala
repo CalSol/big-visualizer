@@ -1,8 +1,8 @@
 package bigvis
 
+import btree.BTree.TimestampType
 import btree.{BTree, FloatAggregator}
 
-import bigvis.btree.BTree.TimestampType
 import com.github.tototoshi.csv.CSVReader
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
@@ -15,7 +15,6 @@ import scalafx.scene.layout.{Priority, StackPane, VBox}
 
 import java.io.File
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 
 // TODO split into data model
@@ -138,13 +137,13 @@ object Main extends JFXApp {
 
   println("Open file")
   // TODO open all 28
-  val cellTrees = (0 until 4).map{ _ => new BTree(FloatAggregator.aggregator, 16) }
+  val cellTrees = (0 until 28).map{ _ => new BTree(FloatAggregator.aggregator, 16) }
 
   {
     val cellArrs = cellTrees.map{ _ => new mutable.ArrayBuffer[(TimestampType, Float)]() }
 
 //    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
-    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.cell.voltage.csv"))
+    val reader = CSVReader.open(new File("bms.cell.voltage.csv"))
     println("Map data")
     val batteriesIterator = reader.iterator
     batteriesIterator.next()  // skip header row
