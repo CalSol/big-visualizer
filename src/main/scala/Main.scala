@@ -194,4 +194,6 @@ object Main extends JFXApp {
       root = splitPane
     }
   }
+  stage.setMinWidth(660)
+  stage.setMinHeight(550)
 }
