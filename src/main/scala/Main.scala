@@ -12,6 +12,7 @@ import scalafx.scene.Scene
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
+import scalafx.scene.input.DragEvent
 
 import java.io.File
 import scala.collection.mutable
@@ -184,6 +185,8 @@ object Main extends JFXApp {
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
+    width = 660
+    height = 550
     scene = new Scene {
       val splitPane = new SplitPane {
         items ++= Seq(navigationPane, visualizationPane)
@@ -194,6 +197,6 @@ object Main extends JFXApp {
       root = splitPane
     }
   }
-  stage.setMinWidth(660)
-  stage.setMinHeight(550)
+  // stage.setMinWidth(660)
+  // stage.setMinHeight(550)
 }
