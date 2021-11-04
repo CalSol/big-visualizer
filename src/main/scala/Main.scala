@@ -12,7 +12,7 @@ import scalafx.scene.Scene
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
-// import scalafx.scene.input.DragEvent //TODO
+
 
 import java.io.File
 import scala.collection.mutable
