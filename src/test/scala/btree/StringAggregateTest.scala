@@ -8,7 +8,7 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   behavior of "StringAggregate"
 
   it should "aggregate summary" in {
-    val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
+    val dataset = (0L until 4L) map {i => (i, "error")}
 
     val result = StringAggregator.aggregator.fromLeaves(dataset)
     result.count should be (4)
@@ -16,15 +16,15 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   }
 
   it should "aggregate summary all different none" in {
-    val dataset: Seq[(Long, String)] = (0 until 6) map {i => (i, i.toString)}
+    val dataset = (0L until 6L) map {i => (i, i.toString)}
     val result = StringAggregator.aggregator.fromLeaves(dataset)
     result.count should be (6)
     result.summary should be (None)
   }
 
   it should "aggregate summary one different none" in {
-    val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
-    val dataset2 = dataset :+ (4.toLong, "success")
+    val dataset = (0L until 4L) map {i => (i, "error")}
+    val dataset2 = dataset :+ (4L, "success")
 
     val result = StringAggregator.aggregator.fromLeaves(dataset2)
     result.count should be (5)
@@ -32,11 +32,11 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   }
 
   it should "aggregate summary nodes" in {
-    val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
+    val dataset = (0L until 4L) map {i => (i, "error")}
     val result1 = StringAggregator.aggregator.fromLeaves(dataset)
-    val dataset2: Seq[(Long, String)] = (4 until 8) map {i => (i, "error")}
+    val dataset2 = (4L until 8L) map {i => (i, "error")}
     val result2 = StringAggregator.aggregator.fromLeaves(dataset2)
-    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 3), result1), ((4, 7), result2))
+    val compdataset = Seq(((0L, 3L), result1), ((4L, 7L), result2))
 
     val result = StringAggregator.aggregator.fromNodes(compdataset)
     result.count should be (8)
@@ -44,11 +44,11 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   }
 
   it should "aggregate summary nodes one node different" in {
-    val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
+    val dataset = (0L until 4L) map {i => (i, "error")}
     val result1 = StringAggregator.aggregator.fromLeaves(dataset)
-    val dataset2: Seq[(Long, String)] = (4 until 8) map {i => (i, "success")}
+    val dataset2 = (4L until 8L) map {i => (i, "success")}
     val result2 = StringAggregator.aggregator.fromLeaves(dataset2)
-    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 3), result1), ((4, 7), result2))
+    val compdataset = Seq(((0L, 3L), result1), ((4L, 7L), result2))
 
     val result = StringAggregator.aggregator.fromNodes(compdataset)
     result.count should be (8)
@@ -56,12 +56,11 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   }
 
   it should "aggregate summary nodes one different none" in {
-    val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
+    val dataset = (0L until 4L) map {i => (i, "error")}
     val result1 = StringAggregator.aggregator.fromLeaves(dataset)
-    val dataset2: Seq[(Long, String)] = (4 until 7) map {i => (i, "error")}
-    val dataset3 = dataset2 :+ (7.toLong, "success")
-    val result2 = StringAggregator.aggregator.fromLeaves(dataset3)
-    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 3), result1), ((4, 7), result2))
+    val dataset2 = ((4L until 7L) map {i => (i, "error")}) :+ (7L, "success")
+    val result2 = StringAggregator.aggregator.fromLeaves(dataset2)
+    val compdataset = Seq(((0L, 3L), result1), ((4L, 7L), result2))
 
 
     val result = StringAggregator.aggregator.fromNodes(compdataset)
