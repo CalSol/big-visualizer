@@ -34,9 +34,9 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   it should "aggregate summary nodes" in {
     val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
     val result1 = StringAggregator.aggregator.fromLeaves(dataset)
-    val dataset2: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
+    val dataset2: Seq[(Long, String)] = (4 until 8) map {i => (i, "error")}
     val result2 = StringAggregator.aggregator.fromLeaves(dataset2)
-    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 0), result1), ((0, 1), result2))
+    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 3), result1), ((4, 7), result2))
 
     val result = StringAggregator.aggregator.fromNodes(compdataset)
     result.count should be (8)
@@ -46,9 +46,9 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   it should "aggregate summary nodes one node different" in {
     val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
     val result1 = StringAggregator.aggregator.fromLeaves(dataset)
-    val dataset2: Seq[(Long, String)] = (0 until 4) map {i => (i, "success")}
+    val dataset2: Seq[(Long, String)] = (4 until 8) map {i => (i, "success")}
     val result2 = StringAggregator.aggregator.fromLeaves(dataset2)
-    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 0), result1), ((0, 1), result2))
+    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 3), result1), ((4, 7), result2))
 
     val result = StringAggregator.aggregator.fromNodes(compdataset)
     result.count should be (8)
@@ -58,10 +58,10 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
   it should "aggregate summary nodes one different none" in {
     val dataset: Seq[(Long, String)] = (0 until 4) map {i => (i, "error")}
     val result1 = StringAggregator.aggregator.fromLeaves(dataset)
-    val dataset2: Seq[(Long, String)] = (0 until 3) map {i => (i, "error")}
-    val dataset3 = dataset2 :+ (3.toLong, "success")
+    val dataset2: Seq[(Long, String)] = (4 until 7) map {i => (i, "error")}
+    val dataset3 = dataset2 :+ (7.toLong, "success")
     val result2 = StringAggregator.aggregator.fromLeaves(dataset3)
-    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 0), result1), ((0, 1), result2))
+    val compdataset: Seq[((Long, Long), StringAggregate)] = Seq(((0, 3), result1), ((4, 7), result2))
 
 
     val result = StringAggregator.aggregator.fromNodes(compdataset)
