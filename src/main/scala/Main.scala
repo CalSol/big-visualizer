@@ -13,7 +13,6 @@ import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableVie
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
 
-
 import java.io.File
 import scala.collection.mutable
 
