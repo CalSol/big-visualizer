@@ -67,6 +67,4 @@ class StringAggregateTest extends AnyFlatSpec with Matchers {
     result.count should be (8)
     result.summary should be (None)
   }
-
-
 }
