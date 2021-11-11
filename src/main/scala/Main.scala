@@ -53,21 +53,31 @@ class SharedAxisCharts extends VBox {
 
     val lastChart = charts.last.chart
 
-    if (event.isShiftDown) {  // TODO implement vertical zoom/pan
-      val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+    val (newYLower, newYUpper) = if (event.isShiftDown) {  // TODO implement vertical zoom/pan
+      val increment = event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
 
-    } else {
+      val range = lastChart.yUpper.value - lastChart.yLower.value
+      val mouseFrac = event.getDeltaY / lastChart.getHeight
+      val mouseTime = lastChart.yLower.value + (range * mouseFrac).toLong
 
+      val newRange = range * Math.pow(1.00000000001, increment)
+      (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
+    } 
+    else { //nothing changed
+      (lastChart.yLower.value, lastChart.yUpper.value)
     }
 
     val (newLower, newUpper) = if (event.isControlDown) {  // shift to zoom
       val increment = -event.getDeltaY  // consistent with Chrome's zoom UI
-
+      println(s"DEBUG: -DeltaY:$increment")
       val range = lastChart.xUpper.value - lastChart.xLower.value
+      println(s"DEBUG: range:$range")
       val mouseFrac = event.getX / lastChart.getWidth  // in percent of chart from left
+      println(s"DEBUG: mouseFrac:$mouseFrac")
       val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
-
+      println(s"DEBUG: mouseTime: $mouseTime")
       val newRange = range * Math.pow(1.01, increment)
+      println(s"DEBUG: newRange:$newRange")
       (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
     } else {  // normal scroll, left/right
       val increment = -event.getDeltaY
@@ -79,22 +89,27 @@ class SharedAxisCharts extends VBox {
     charts.foreach(chart => {
       chart.chart.xLower.value = newLower
       chart.chart.xUpper.value = newUpper
+      chart.chart.yLower.value = newYLower
+      chart.chart.yUpper.value = newYUpper
     })
   }
 
   protected def onMouse(event: MouseEvent): Unit = {
     charts.foreach(chart => {
-      chart.chart.cursorXPos.value = event.getX
+        chart.chart.cursorXPos.value = event.getX
     })
   }
 
   def zoomMax(): Unit = {
     val minTime = charts.map(_.chart.xLower.value).min
     val maxTime = charts.map(_.chart.xUpper.value).max
-
+    val minyTime = charts.map(_.chart.yLower.value).min
+    val maxyTime = charts.map(_.chart.yUpper.value).max
     charts.foreach(chart => {
       chart.chart.xLower.value = minTime
       chart.chart.xUpper.value = maxTime
+      chart.chart.yLower.value = minyTime
+      chart.chart.yUpper.value = maxyTime
     })
   }
 }
