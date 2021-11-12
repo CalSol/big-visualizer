@@ -53,7 +53,7 @@ class SharedAxisCharts extends VBox {
 
     val lastChart = charts.last.chart
 
-    val (newYLower, newYUpper) = if (event.isShiftDown) {  
+    val (newYLower, newYUpper) = if (event.isShiftDown) {
       val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
       val range = lastChart.yUpper.value - lastChart.yLower.value
       val mouseFrac = 1 - event.getY / lastChart.getHeight
@@ -61,18 +61,17 @@ class SharedAxisCharts extends VBox {
       val newRange = range * Math.pow(1.01, increment)
       (mouseTime - (newRange * mouseFrac), mouseTime + (newRange * (1 - mouseFrac)))
     } 
-    else {
-      val increment = -event.getDeltaX
-      val range = lastChart.yUpper.value - lastChart.yLower.value
-      val shift = (range / 256) * increment
-      (lastChart.yLower.value + shift, lastChart.yUpper.value + shift)
+    else { 
+        (lastChart.yLower.value,lastChart.yUpper.value)
     }
 
-    val (newLower, newUpper) = if (event.isControlDown) {  // shift to zoom
+    val (newXLower, newXUpper) = if (event.isControlDown) {  // shift to zoom
       val increment = -event.getDeltaY  // consistent with Chrome's zoom UI
+
       val range = lastChart.xUpper.value - lastChart.xLower.value
       val mouseFrac = event.getX / lastChart.getWidth  // in percent of chart from left
       val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
+
       val newRange = range * Math.pow(1.01, increment)
       (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
     } else {  // normal scroll, left/right
@@ -83,8 +82,8 @@ class SharedAxisCharts extends VBox {
     }
 
     charts.foreach(chart => {
-      chart.chart.xLower.value = newLower
-      chart.chart.xUpper.value = newUpper
+      chart.chart.xLower.value = newXLower
+      chart.chart.xUpper.value = newXUpper
       chart.chart.yLower.value = newYLower
       chart.chart.yUpper.value = newYUpper
     })
@@ -92,20 +91,20 @@ class SharedAxisCharts extends VBox {
 
   protected def onMouse(event: MouseEvent): Unit = {
     charts.foreach(chart => {
-        chart.chart.cursorXPos.value = event.getX
+      chart.chart.cursorXPos.value = event.getX
     })
   }
 
   def zoomMax(): Unit = {
-    val minTime = charts.map(_.chart.xLower.value).min
-    val maxTime = charts.map(_.chart.xUpper.value).max
-    val minyTime = charts.map(_.chart.yLower.value).min
-    val maxyTime = charts.map(_.chart.yUpper.value).max
+    val minXTime = charts.map(_.chart.xLower.value).min
+    val maxXTime = charts.map(_.chart.xUpper.value).max
+    val minYTime = charts.map(_.chart.yLower.value).min
+    val maxYTime = charts.map(_.chart.yUpper.value).max
     charts.foreach(chart => {
-      chart.chart.xLower.value = minTime
-      chart.chart.xUpper.value = maxTime
-      chart.chart.yLower.value = minyTime
-      chart.chart.yUpper.value = maxyTime
+      chart.chart.xLower.value = minXTime
+      chart.chart.xUpper.value = maxXTime
+      chart.chart.yLower.value = minYTime
+      chart.chart.yUpper.value = maxYTime
     })
   }
 }
