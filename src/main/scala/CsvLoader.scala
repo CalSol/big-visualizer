@@ -112,6 +112,7 @@ object CsvLoader {
     }
     val dataTypesMap = (headers zip dataTypes).toMap
 
+    // Infer array types by looking for things ending with numbers and checking for a common prefix
     val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
         .filter(_._2.length >= ARRAY_MIN_LEN)
 
@@ -126,6 +127,7 @@ object CsvLoader {
       }
     }
 
+    // Build up the parsers, in the same order as the data they will parse (except the first time element)
     val parsers = (headers zip dataTypes) map {
       case (header, dataType) if doubleArraysMap.contains(header) =>
         doubleArraysMap(header)
@@ -137,6 +139,7 @@ object CsvLoader {
         new DummyParser(header)
     }
 
+    // Actually read the CSVs
     var count: Long = 0
     val loadTime = timeExec {
       (firstRows ++ rowIter).foreach { rawRow =>
@@ -145,7 +148,7 @@ object CsvLoader {
         (row.tail zip parsers).foreach { case (cell, parser) =>
           parser.parseCell(time, cell)
         }
-        
+
         count += 1
       }
     }
