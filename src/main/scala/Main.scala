@@ -4,7 +4,6 @@ import btree.BTree.TimestampType
 import btree.{BTree, FloatAggregator}
 
 import com.github.tototoshi.csv.CSVReader
-import javafx.event.EventHandler
 import javafx.scene.input.{DragEvent, MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -16,6 +15,8 @@ import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
 
 import java.io.File
+import java.net.URI
+import java.nio.file.{FileSystem, LinkOption, Path, Paths, WatchEvent, WatchKey, WatchService}
 import scala.collection.mutable
 
 
@@ -106,6 +107,9 @@ object Main extends JFXApp {
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
 
+  CsvLoader.load(Paths.get("bms.cell.voltage.csv"))
+  System.exit(0)
+
   println(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}")
 
   val dataRoot = new TreeItem(DataItem("root")) {
@@ -137,6 +141,7 @@ object Main extends JFXApp {
     children = Seq(tree)
     setVgrow(tree, Priority.Always)
   }
+
 
   navigationPane.tree.setOnDragOver((event: DragEvent) => {
     println(event.getDragboard.getFiles)

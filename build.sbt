@@ -12,6 +12,8 @@ libraryDependencies ++= Seq(
   "org.scalafx" %% "scalafx" % "16.0.0-R25",
   "com.github.tototoshi" %% "scala-csv" % "1.3.8",
 
+  "de.siegmar" % "fastcsv" % "2.1.0",
+
   "org.scalatest" %% "scalatest" % "3.2.0" % "test",
 )
 
