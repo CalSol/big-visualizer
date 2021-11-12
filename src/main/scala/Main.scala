@@ -53,8 +53,8 @@ class SharedAxisCharts extends VBox {
 
     val lastChart = charts.last.chart
 
-    val (newYLower, newYUpper) = if (event.isShiftDown && event.isControlDown){ //vertical scroll
-      val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+    val (newYLower, newYUpper) = if (event.isShiftDown && event.isControlDown) { //vertical scroll
+      val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
       val range = lastChart.yUpper.value - lastChart.yLower.value
       val mouseFrac = 1 - event.getY / lastChart.getHeight
       val mouseValue = lastChart.yLower.value + (range * mouseFrac)
@@ -66,19 +66,19 @@ class SharedAxisCharts extends VBox {
       val shift = (range / 256) * increment
       (lastChart.yLower.value + shift, lastChart.yUpper.value + shift)
     } else {
-        (lastChart.yLower.value,lastChart.yUpper.value)
+      (lastChart.yLower.value, lastChart.yUpper.value)
     }
 
-    val (newXLower, newXUpper) = if (event.isControlDown) {  // shift to zoom
-      val increment = -event.getDeltaY  // consistent with Chrome's zoom UI
+    val (newXLower, newXUpper) = if (event.isControlDown) { // shift to zoom
+      val increment = -event.getDeltaY // consistent with Chrome's zoom UI
 
       val range = lastChart.xUpper.value - lastChart.xLower.value
-      val mouseFrac = event.getX / lastChart.getWidth  // in percent of chart from left
+      val mouseFrac = event.getX / lastChart.getWidth // in percent of chart from left
       val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
 
       val newRange = range * Math.pow(1.01, increment)
       (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
-    } else {  // normal scroll, left/right
+    } else { // normal scroll, left/right
       val increment = -event.getDeltaY
       val range = lastChart.xUpper.value - lastChart.xLower.value
       val shift = (range / 256) * increment
@@ -87,25 +87,14 @@ class SharedAxisCharts extends VBox {
 
     charts.foreach(chart => {
       if (event.isShiftDown) {
-        if (event.isControlDown) {
-          chart.chart.yLower.value = newYLower
-          chart.chart.yUpper.value = newYUpper
-        } else {
-          chart.chart.yLower.value = newYLower
-          chart.chart.yUpper.value = newYUpper
-        }
+        chart.chart.yLower.value = newYLower
+        chart.chart.yUpper.value = newYUpper
       } else {
-        if (event.isControlDown) {
-          chart.chart.xLower.value = newXLower
-          chart.chart.xUpper.value = newXUpper
-        } else {
-          chart.chart.xLower.value = newXLower
-          chart.chart.xUpper.value = newXUpper
-        }
+        chart.chart.xLower.value = newXLower
+        chart.chart.xUpper.value = newXUpper
       }
     })
   }
-
   protected def onMouse(event: MouseEvent): Unit = {
     charts.foreach(chart => {
       chart.chart.cursorXPos.value = event.getX
