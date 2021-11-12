@@ -52,46 +52,43 @@ class SharedAxisCharts extends VBox {
     event.consume()
 
     val lastChart = charts.last.chart
-
-    val (newYLower, newYUpper) = if (event.isShiftDown && event.isControlDown) { //vertical scroll
-      val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
-      val range = lastChart.yUpper.value - lastChart.yLower.value
-      val mouseFrac = 1 - event.getY / lastChart.getHeight
-      val mouseValue = lastChart.yLower.value + (range * mouseFrac)
-      val newRange = range * Math.pow(1.01, increment)
-      (mouseValue - (newRange * mouseFrac), mouseValue + (newRange * (1 - mouseFrac)))
-    } else if (event.isShiftDown) {
-      val increment = -event.getDeltaX
-      val range = lastChart.yUpper.value - lastChart.yLower.value
-      val shift = (range / 256) * increment
-      (lastChart.yLower.value + shift, lastChart.yUpper.value + shift)
-    } else {
-      (lastChart.yLower.value, lastChart.yUpper.value)
-    }
-
-    val (newXLower, newXUpper) = if (event.isControlDown) { // shift to zoom
-      val increment = -event.getDeltaY // consistent with Chrome's zoom UI
-
-      val range = lastChart.xUpper.value - lastChart.xLower.value
-      val mouseFrac = event.getX / lastChart.getWidth // in percent of chart from left
-      val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
-
-      val newRange = range * Math.pow(1.01, increment)
-      (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
-    } else { // normal scroll, left/right
-      val increment = -event.getDeltaY
-      val range = lastChart.xUpper.value - lastChart.xLower.value
-      val shift = (range / 256) * increment
-      (lastChart.xLower.value + shift.toLong, lastChart.xUpper.value + shift.toLong)
-    }
-
     charts.foreach(chart => {
       if (event.isShiftDown) {
-        chart.chart.yLower.value = newYLower
-        chart.chart.yUpper.value = newYUpper
+        if (event.isControlDown) {
+          val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+          val range = lastChart.yUpper.value - lastChart.yLower.value
+          val mouseFrac = 1 - event.getY / lastChart.getHeight
+          val mouseValue = lastChart.yLower.value + (range * mouseFrac)
+          val newRange = range * Math.pow(1.01, increment)
+          chart.chart.yLower.value = mouseValue - (newRange * mouseFrac)
+          chart.chart.yUpper.value = mouseValue + (newRange * (1 - mouseFrac))
+        } else {
+          val increment = -event.getDeltaX
+          val range = lastChart.yUpper.value - lastChart.yLower.value
+          val shift = (range / 256) * increment
+          chart.chart.yLower.value = lastChart.yLower.value + shift
+          chart.chart.yUpper.value = lastChart.yUpper.value + shift
+        }
       } else {
-        chart.chart.xLower.value = newXLower
-        chart.chart.xUpper.value = newXUpper
+        if (event.isControlDown) {
+          val increment = -event.getDeltaY // consistent with Chrome's zoom UI
+
+          val range = lastChart.xUpper.value - lastChart.xLower.value
+          val mouseFrac = event.getX / lastChart.getWidth // in percent of chart from left
+          val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
+
+          val newRange = range * Math.pow(1.01, increment)
+          chart.chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
+          chart.chart.xUpper.value = mouseTime + (newRange * (1 - mouseFrac)).toLong
+        } else {
+          val increment = -event.getDeltaY
+          val range = lastChart.xUpper.value - lastChart.xLower.value
+          val shift = (range / 256) * increment
+          chart.chart.xLower.value = lastChart.xLower.value + shift.toLong
+          chart.chart.xUpper.value = lastChart.xUpper.value + shift.toLong
+          chart.chart.yLower.value = lastChart.yLower.value
+          chart.chart.yUpper.value = lastChart.yUpper.value
+        }
       }
     })
   }
