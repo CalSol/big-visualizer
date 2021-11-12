@@ -86,13 +86,22 @@ class SharedAxisCharts extends VBox {
     }
 
     charts.foreach(chart => {
-      if (newXLower != chart.chart.xLower.value) {
-        chart.chart.xLower.value = newXLower
-        chart.chart.xUpper.value = newXUpper
-      }
-      if (newYLower != chart.chart.yLower.value) {
-        chart.chart.yLower.value = newYLower
-        chart.chart.yUpper.value = newYUpper
+      if (event.isShiftDown) {
+        if (event.isControlDown) {
+          chart.chart.yLower.value = newYLower
+          chart.chart.yUpper.value = newYUpper
+        } else {
+          chart.chart.yLower.value = newYLower
+          chart.chart.yUpper.value = newYUpper
+        }
+      } else {
+        if (event.isControlDown) {
+          chart.chart.xLower.value = newXLower
+          chart.chart.xUpper.value = newXUpper
+        } else {
+          chart.chart.xLower.value = newXLower
+          chart.chart.xUpper.value = newXUpper
+        }
       }
     })
   }
