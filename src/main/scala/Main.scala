@@ -4,12 +4,14 @@ import btree.BTree.TimestampType
 import btree.{BTree, FloatAggregator}
 
 import com.github.tototoshi.csv.CSVReader
-import javafx.scene.input.{MouseEvent, ScrollEvent}
+import javafx.event.EventHandler
+import javafx.scene.input.{DragEvent, MouseEvent, ScrollEvent}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.beans.property.StringProperty
 import scalafx.scene.Scene
 import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
+import scalafx.scene.input.TransferMode
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
 
@@ -135,6 +137,12 @@ object Main extends JFXApp {
     children = Seq(tree)
     setVgrow(tree, Priority.Always)
   }
+
+  navigationPane.tree.setOnDragOver((event: DragEvent) => {
+    println(event.getDragboard.getFiles)
+    event.acceptTransferModes(TransferMode.CopyOrMove: _*)
+    event.consume()
+  })
 
   println("Open file")
   // TODO open all 28
