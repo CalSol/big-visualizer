@@ -53,31 +53,27 @@ class SharedAxisCharts extends VBox {
 
     val lastChart = charts.last.chart
 
-    val (newYLower, newYUpper) = if (event.isShiftDown) {  // TODO implement vertical zoom/pan
-      val increment = event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
-
+    val (newYLower, newYUpper) = if (event.isShiftDown) {  
+      val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
       val range = lastChart.yUpper.value - lastChart.yLower.value
-      val mouseFrac = event.getDeltaY / lastChart.getHeight
-      val mouseTime = lastChart.yLower.value + (range * mouseFrac).toLong
-
-      val newRange = range * Math.pow(1.00000000001, increment)
-      (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
+      val mouseFrac = 1 - event.getY / lastChart.getHeight
+      val mouseTime = lastChart.yLower.value + (range * mouseFrac)
+      val newRange = range * Math.pow(1.01, increment)
+      (mouseTime - (newRange * mouseFrac), mouseTime + (newRange * (1 - mouseFrac)))
     } 
-    else { //nothing changed
-      (lastChart.yLower.value, lastChart.yUpper.value)
+    else {
+      val increment = -event.getDeltaX
+      val range = lastChart.yUpper.value - lastChart.yLower.value
+      val shift = (range / 256) * increment
+      (lastChart.yLower.value + shift, lastChart.yUpper.value + shift)
     }
 
     val (newLower, newUpper) = if (event.isControlDown) {  // shift to zoom
       val increment = -event.getDeltaY  // consistent with Chrome's zoom UI
-      println(s"DEBUG: -DeltaY:$increment")
       val range = lastChart.xUpper.value - lastChart.xLower.value
-      println(s"DEBUG: range:$range")
       val mouseFrac = event.getX / lastChart.getWidth  // in percent of chart from left
-      println(s"DEBUG: mouseFrac:$mouseFrac")
       val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
-      println(s"DEBUG: mouseTime: $mouseTime")
       val newRange = range * Math.pow(1.01, increment)
-      println(s"DEBUG: newRange:$newRange")
       (mouseTime - (newRange * mouseFrac).toLong, mouseTime + (newRange * (1 - mouseFrac)).toLong)
     } else {  // normal scroll, left/right
       val increment = -event.getDeltaY
