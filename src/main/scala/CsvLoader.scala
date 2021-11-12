@@ -153,6 +153,8 @@ object CsvLoader {
       }
     }
 
+    // TODO build B-tree representation and data format to put into the tree view
+
     println(f"loaded $count rows in $loadTime s")
   }
 }
