@@ -53,14 +53,20 @@ class SharedAxisCharts extends VBox {
 
     val lastChart = charts.last.chart
 
-    val (newYLower, newYUpper) = if (event.isShiftDown) {
+    val (newYLower, newYUpper) = if(event.isShiftDown && event.isControlDown){ //vertical scroll
+      val increment = -event.getDeltaX
+      val range = lastChart.yUpper.value - lastChart.yLower.value
+      val shift = (range / 256) * increment
+      (lastChart.yLower.value + shift, lastChart.yUpper.value + shift)
+    }
+    else if (event.isShiftDown) {
       val increment = -event.getDeltaX  // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
       val range = lastChart.yUpper.value - lastChart.yLower.value
       val mouseFrac = 1 - event.getY / lastChart.getHeight
-      val mouseTime = lastChart.yLower.value + (range * mouseFrac)
+      val mouseValue = lastChart.yLower.value + (range * mouseFrac)
       val newRange = range * Math.pow(1.01, increment)
-      (mouseTime - (newRange * mouseFrac), mouseTime + (newRange * (1 - mouseFrac)))
-    } 
+      (mouseValue - (newRange * mouseFrac), mouseValue + (newRange * (1 - mouseFrac)))
+    }
     else { 
         (lastChart.yLower.value,lastChart.yUpper.value)
     }
@@ -101,10 +107,13 @@ class SharedAxisCharts extends VBox {
     val minYTime = charts.map(_.chart.yLower.value).min
     val maxYTime = charts.map(_.chart.yUpper.value).max
     charts.foreach(chart => {
-      chart.chart.xLower.value = minXTime
-      chart.chart.xUpper.value = maxXTime
-      chart.chart.yLower.value = minYTime
-      chart.chart.yUpper.value = maxYTime
+      if(chart.chart.xLower.value != minXTime) {
+        chart.chart.xLower.value = minXTime
+        chart.chart.xUpper.value = maxXTime
+      }else if(chart.chart.yLower.value != minYTime){
+        chart.chart.yLower.value = minYTime
+        chart.chart.yUpper.value = maxYTime
+      }
     })
   }
 }
