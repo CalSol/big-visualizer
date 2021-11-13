@@ -82,7 +82,7 @@ class SharedAxisCharts extends VBox {
 
         val newRange = range * Math.pow(1.01, increment)
         charts.foreach(chart => {
-         chart.chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
+          chart.chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
           chart.chart.xUpper.value = mouseTime + (newRange * (1 - mouseFrac)).toLong
         })
       } else {
@@ -92,8 +92,6 @@ class SharedAxisCharts extends VBox {
         charts.foreach(chart => {
           chart.chart.xLower.value = lastChart.xLower.value + shift.toLong
           chart.chart.xUpper.value = lastChart.xUpper.value + shift.toLong
-          chart.chart.yLower.value = lastChart.yLower.value
-          chart.chart.yUpper.value = lastChart.yUpper.value
         })
       }
     }
