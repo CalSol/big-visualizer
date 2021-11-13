@@ -52,45 +52,51 @@ class SharedAxisCharts extends VBox {
     event.consume()
 
     val lastChart = charts.last.chart
-    charts.foreach(chart => {
-      if (event.isShiftDown) {
-        if (event.isControlDown) {
-          val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
-          val range = lastChart.yUpper.value - lastChart.yLower.value
-          val mouseFrac = 1 - event.getY / lastChart.getHeight
-          val mouseValue = lastChart.yLower.value + (range * mouseFrac)
-          val newRange = range * Math.pow(1.01, increment)
+    if (event.isShiftDown) {
+      if (event.isControlDown) {
+        val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+        val range = lastChart.yUpper.value - lastChart.yLower.value
+        val mouseFrac = 1 - event.getY / lastChart.getHeight
+        val mouseValue = lastChart.yLower.value + (range * mouseFrac)
+        val newRange = range * Math.pow(1.01, increment)
+        charts.foreach(chart => {
           chart.chart.yLower.value = mouseValue - (newRange * mouseFrac)
           chart.chart.yUpper.value = mouseValue + (newRange * (1 - mouseFrac))
-        } else {
-          val increment = -event.getDeltaX
-          val range = lastChart.yUpper.value - lastChart.yLower.value
-          val shift = (range / 256) * increment
+        })
+      } else {
+        val increment = -event.getDeltaX
+        val range = lastChart.yUpper.value - lastChart.yLower.value
+        val shift = (range / 256) * increment
+        charts.foreach(chart => {
           chart.chart.yLower.value = lastChart.yLower.value + shift
           chart.chart.yUpper.value = lastChart.yUpper.value + shift
-        }
-      } else {
-        if (event.isControlDown) {
-          val increment = -event.getDeltaY // consistent with Chrome's zoom UI
+        })
+      }
+    } else {
+      if (event.isControlDown) {
+        val increment = -event.getDeltaY // consistent with Chrome's zoom UI
 
-          val range = lastChart.xUpper.value - lastChart.xLower.value
-          val mouseFrac = event.getX / lastChart.getWidth // in percent of chart from left
-          val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
+        val range = lastChart.xUpper.value - lastChart.xLower.value
+        val mouseFrac = event.getX / lastChart.getWidth // in percent of chart from left
+        val mouseTime = lastChart.xLower.value + (range * mouseFrac).toLong
 
-          val newRange = range * Math.pow(1.01, increment)
-          chart.chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
+        val newRange = range * Math.pow(1.01, increment)
+        charts.foreach(chart => {
+         chart.chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
           chart.chart.xUpper.value = mouseTime + (newRange * (1 - mouseFrac)).toLong
-        } else {
-          val increment = -event.getDeltaY
-          val range = lastChart.xUpper.value - lastChart.xLower.value
-          val shift = (range / 256) * increment
+        })
+      } else {
+        val increment = -event.getDeltaY
+        val range = lastChart.xUpper.value - lastChart.xLower.value
+        val shift = (range / 256) * increment
+        charts.foreach(chart => {
           chart.chart.xLower.value = lastChart.xLower.value + shift.toLong
           chart.chart.xUpper.value = lastChart.xUpper.value + shift.toLong
           chart.chart.yLower.value = lastChart.yLower.value
           chart.chart.yUpper.value = lastChart.yUpper.value
-        }
+        })
       }
-    })
+    }
   }
   protected def onMouse(event: MouseEvent): Unit = {
     charts.foreach(chart => {
