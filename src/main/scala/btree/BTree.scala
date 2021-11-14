@@ -18,6 +18,12 @@ abstract class BTreeAggregator {
   def fromNodes(data: Seq[((BTree.TimestampType, BTree.TimestampType), NodeType)]): NodeType
 }
 
+
+/** Non-type-parameterized base class for a B-tree
+ */
+sealed trait UntypedBTree
+
+
 /** A mutable B-Tree for timeseries, where data points have some kind of type-paramterized data
  * and an integer timestamp.
  * See https://en.wikipedia.org/wiki/B-tree
@@ -25,7 +31,7 @@ abstract class BTreeAggregator {
  * The nodeSize parameter is the maximum number of children it has ("order" / m in the Wikipedia page).
  */
 class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
-                                               val nodeSize: Int) {
+                                               val nodeSize: Int) extends UntypedBTree {
   // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): AggregatorType#NodeType =
     aggregator.fromLeaves(data.asInstanceOf[Seq[(BTree.TimestampType, this.aggregator.LeafType)]])

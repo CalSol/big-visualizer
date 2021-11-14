@@ -1,7 +1,8 @@
 package bigvis
 
-import bigvis.btree.{BTree, FloatAggregator}
+import bigvis.btree.{BTree, BTreeAggregator, FloatAggregator, StringAggregator, UntypedBTree}
 import de.siegmar.fastcsv.reader.CsvReader
+import scalafx.beans.property.StringProperty
 
 import java.nio.file.Path
 import scala.collection.mutable
@@ -10,7 +11,9 @@ import scala.util.Try
 
 
 trait DataBuilder {
-  val name: String
+  def name: String
+  def desc: String
+  def makeTree: UntypedBTree
 }
 
 
@@ -24,7 +27,9 @@ class DummyParser(val name: String) extends Parser {
   def parseCell(time: Long, value: String): Unit = {}
 
   override def getBuilder: DataBuilder = new DataBuilder {
-    override val name = DummyParser.this.name
+    override def name = DummyParser.this.name
+    override def desc = "Dummy"
+    override def makeTree = new BTree(FloatAggregator.aggregator, 16)
   }
 }
 
@@ -43,29 +48,41 @@ class StringParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
+  override def desc = s"String, ${dataBuilder.length}"
+  override def makeTree: BTree[StringAggregator] = {
+    val tree = new BTree(StringAggregator.aggregator, 16)
+    tree.appendAll(dataBuilder)
+    tree
+  }
 }
 
 
-class DoubleParser(val name: String) extends Parser with DataBuilder {
+class FloatParser(val name: String) extends Parser with DataBuilder {
   override def toString: String = s"${getClass.getName}($name)"
 
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, Double)]()
+  protected val dataBuilder = mutable.ArrayBuffer[(Long, Float)]()
 
   override def parseCell(time: Long, value: String): Unit = {
     if (value.isEmpty) {
       return
     }
-    dataBuilder.append((time, value.toDouble))
+    dataBuilder.append((time, value.toFloat))
   }
 
   override def getBuilder: DataBuilder = this
+  override def desc = s"Double, ${dataBuilder.length}"
+  override def makeTree: BTree[FloatAggregator] = {
+    val tree = new BTree(FloatAggregator.aggregator, 16)
+    tree.appendAll(dataBuilder)
+    tree
+  }
 }
 
 
-class DoubleArrayBuilder(val name: String) extends DataBuilder {
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, Map[Int, Double])]()
+class FloatArrayBuilder(val name: String) extends DataBuilder {
+  protected val dataBuilder = mutable.ArrayBuffer[(Long, Map[Int, Float])]()
   protected var assemblyTime: Option[Long] = None
-  protected val assembly = mutable.HashMap[Int, Double]()
+  protected val assembly = mutable.HashMap[Int, Float]()
 
   class CellParser(index: Int) extends Parser {
     override def toString: String = s"${getClass.getName}($name, $index)"
@@ -81,11 +98,23 @@ class DoubleArrayBuilder(val name: String) extends DataBuilder {
         assemblyTime = Some(time)
         assembly.clear()
       }
-      assembly.put(index, value.toDouble)
+      assembly.put(index, value.toFloat)
     }
 
-    override def getBuilder: DataBuilder = DoubleArrayBuilder.this
+    override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
+
+  override def desc = s"DoubleArray, ${dataBuilder.length}"
+  override def makeTree: BTree[BTreeAggregator] = {
+    // TODO implement me
+    new BTree(FloatAggregator.aggregator, 16)
+  }
+}
+
+
+case class BTreeDataItem(name: String, desc: String, tree: Option[UntypedBTree]) {
+  val nameProp = StringProperty(name)
+  val dataProp = StringProperty(desc)
 }
 
 
@@ -93,7 +122,11 @@ object CsvLoader {
   val SCAN_ROWS = 16  // rows to scan to determine type of a cell
   val ARRAY_MIN_LEN = 4
 
-  def load(path: Path): Unit = {
+  val ROWS_BETWEEN_UPDATES = 16384
+
+  def load(path: Path)(status: String => Unit): Seq[BTreeDataItem] = {
+    status(s"loading")
+
     val csv = CsvReader.builder().build(path)
     val rowIter = csv.iterator().asScala
     // implied that first is the timestamp
@@ -113,31 +146,36 @@ object CsvLoader {
     val dataTypesMap = (headers zip dataTypes).toMap
 
     // Infer array types by looking for things ending with numbers and checking for a common prefix
-    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
-        .filter(_._2.length >= ARRAY_MIN_LEN)
+//    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
+//        .filter(_._2.length >= ARRAY_MIN_LEN)
+    val headerArrays = Map[String, Seq[String]]()
 
     val headerDoubleArrays = headerArrays.filter { case (arrayPrefix, arrayElts) =>
       arrayElts.forall(dataTypesMap.getOrElse(_, None) == Some(classOf[Double]))
     }
     val doubleArraysMap = headerDoubleArrays.flatMap { case (arrayPrefix, arrayElts) =>
-      val builder = new DoubleArrayBuilder(arrayPrefix)
+      val builder = new FloatArrayBuilder(arrayPrefix)
       arrayElts.map { arrayElt =>
         val index = arrayElt.reverse.takeWhile(_.isDigit).reverse.toInt
         arrayElt -> new builder.CellParser(index)
       }
     }
 
+    status(s"determined types")
+
     // Build up the parsers, in the same order as the data they will parse (except the first time element)
     val parsers = (headers zip dataTypes) map {
       case (header, dataType) if doubleArraysMap.contains(header) =>
         doubleArraysMap(header)
       case (header, Some(dataType)) if dataType == classOf[Double] =>
-        new DoubleParser(header)
+        new FloatParser(header)
       case (header, Some(dataType)) if dataType == classOf[String] =>
         new StringParser(header)
       case (header, None) =>
         new DummyParser(header)
     }
+
+    status(s"created parsers")
 
     // Actually read the CSVs
     var count: Long = 0
@@ -150,11 +188,16 @@ object CsvLoader {
         }
 
         count += 1
+
+        if (count % ROWS_BETWEEN_UPDATES == 0) {
+          status(s"read $count rows")
+        }
       }
     }
 
-    // TODO build B-tree representation and data format to put into the tree view
-
-    println(f"loaded $count rows in $loadTime s")
+    val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
+    dataBuilders.toSeq.map { dataBuilder =>
+      BTreeDataItem(dataBuilder.name, dataBuilder.desc, Some(dataBuilder.makeTree))
+    }
   }
 }

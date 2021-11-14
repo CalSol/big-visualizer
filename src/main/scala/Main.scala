@@ -1,7 +1,7 @@
 package bigvis
 
 import btree.BTree.TimestampType
-import btree.{BTree, FloatAggregator}
+import btree.{BTree, BTreeAggregator, FloatAggregator}
 
 import com.github.tototoshi.csv.CSVReader
 import javafx.scene.input.{DragEvent, MouseEvent, ScrollEvent}
@@ -18,13 +18,7 @@ import java.io.File
 import java.net.URI
 import java.nio.file.{FileSystem, LinkOption, Path, Paths, WatchEvent, WatchKey, WatchService}
 import scala.collection.mutable
-
-
-// TODO split into data model
-case class DataItem(name: String) {
-  val nameProp = StringProperty(name)
-  val dataProp = StringProperty("0")
-}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 
 /**
@@ -104,21 +98,13 @@ class SharedAxisCharts extends VBox {
 
 
 object Main extends JFXApp {
-  // See layouts documentation
-  // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
-
-  CsvLoader.load(Paths.get("bms.cell.voltage.csv"))
-  System.exit(0)
-
   println(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}")
 
-  val dataRoot = new TreeItem(DataItem("root")) {
+  // See layouts documentation
+  // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
+  val dataRoot = new TreeItem(BTreeDataItem("root", "", None)) {
     expanded = true
-    children = Seq(
-      new TreeItem(DataItem("quack")),
-      new TreeItem(DataItem("lol")),
-      new TreeItem(DataItem("cats")),
-    )
+    children = Seq()
   }
 
   val navigationPane = new VBox {
@@ -126,13 +112,13 @@ object Main extends JFXApp {
     // https://github.com/scalafx/ScalaFX-Tutorials/blob/master/slick-table/src/main/scala/org/scalafx/slick_table/ContactsView.scala
     // and tree view example at
     // https://github.com/scalafx/scalafx/blob/master/scalafx-demos/src/main/scala/scalafx/controls/treetableview/TreeTableViewWithTwoColumns.scala
-    val tree = new TreeTableView[DataItem](dataRoot) {
+    val tree = new TreeTableView[BTreeDataItem](dataRoot) {
       columns ++= Seq(
-        new TreeTableColumn[DataItem, String] {
+        new TreeTableColumn[BTreeDataItem, String] {
           text = "Name"
           cellValueFactory = { _.value.value.value.nameProp }
         },
-        new TreeTableColumn[DataItem, String] {
+        new TreeTableColumn[BTreeDataItem, String] {
           text = "Data"
           cellValueFactory = { _.value.value.value.dataProp }
         }
@@ -142,58 +128,48 @@ object Main extends JFXApp {
     setVgrow(tree, Priority.Always)
   }
 
-
   navigationPane.tree.setOnDragOver((event: DragEvent) => {
-    println(event.getDragboard.getFiles)
-    event.acceptTransferModes(TransferMode.CopyOrMove: _*)
+    event.acceptTransferModes(TransferMode.Copy)
+    event.consume()
+  })
+  navigationPane.tree.setOnDragDropped((event: DragEvent) => {
+    event.getDragboard.getFiles.asScala.toSeq match {
+      case Seq(file) if file.getName.endsWith(".csv") =>
+        val statusTreeItem = new TreeItem(BTreeDataItem(file.getName, "loading", None))
+        dataRoot.children.append(statusTreeItem)
+
+        new Thread(() => {  // read in a separate thread, so the UI loop doesn't freeze
+          try {
+            val loadedDataItems = CsvLoader.load(file.toPath) { status =>
+              statusTreeItem.value.value.dataProp.value = status
+            }
+            System.gc()  // this saves ~1-2 GB of memory
+
+            val loadedTreeItems = loadedDataItems.map(new TreeItem(_).delegate)
+            dataRoot.children.appendAll(loadedTreeItems)
+          } finally {
+            dataRoot.children.remove(statusTreeItem)
+          }
+        }).start()
+        event.setDropCompleted(true)
+      case _ =>
+        event.setDropCompleted(false)
+    }
     event.consume()
   })
 
-  println("Open file")
-  // TODO open all 28
-  val cellTrees = (0 until 4).map{ _ => new BTree(FloatAggregator.aggregator, 16) }
-
-  {
-    val cellArrs = cellTrees.map{ _ => new mutable.ArrayBuffer[(TimestampType, Float)]() }
-
-//    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
-    val reader = CSVReader.open(new File("bms.cell.voltage.csv"))
-    println("Map data")
-    val batteriesIterator = reader.iterator
-    batteriesIterator.next()  // skip header row
-    batteriesIterator.foreach { fields => // tail to discard header
-       fields(0).toDoubleOption match {
-         case Some(time) =>
-           val timeLong = (time * 1000).toLong
-           cellArrs.zipWithIndex.map { case (cellArr, i) =>
-             fields(2 + i).toFloatOption match {
-               case Some(field) => cellArr.append((timeLong, field))
-               case None =>
-             }
-           }
-         case None =>
-      }
-    }
-    println(f"data read, n=${cellArrs(0).length}")
-
-    (cellTrees zip cellArrs).zipWithIndex.foreach { case ((cellTree, cellArr), i) =>
-      cellTree.appendAll(cellArr)
-      println(s"tree insert $i, h=${cellTree.maxDepth}")
-    }
-  }
-  System.gc()  // this saves ~1-2 GB of memory
-
   // TODO make this much less hacky =s
-  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
-    ChartDefinition(f"cell-$i", cellTree, cellColor)
-  }
+//  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
+//    ChartDefinition(f"cell-$i", cellTree, cellColor)
+//  }
+//  val chartDefs = Seq()
 
   // TODO the wrapping doesn't belong here
   val visualizationPane = new SharedAxisCharts
-  visualizationPane.addChart(new StackPane(delegate=
-    new BTreeChart(chartDefs, 1000)))
+//  visualizationPane.addChart(new StackPane(delegate=
+//    new BTreeChart(chartDefs, 1000)))
 
-  visualizationPane.zoomMax()
+//  visualizationPane.zoomMax()
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
