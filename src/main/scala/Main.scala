@@ -1,24 +1,17 @@
 package bigvis
 
-import btree.BTree.TimestampType
-import btree.{BTree, BTreeAggregator, FloatAggregator}
-
-import com.github.tototoshi.csv.CSVReader
-import javafx.scene.input.{DragEvent, MouseEvent, ScrollEvent}
+import javafx.scene.input.{DataFormat, DragEvent, MouseEvent, ScrollEvent}
+import javafx.util.Callback
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
-import scalafx.beans.property.StringProperty
 import scalafx.scene.Scene
-import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableView}
-import scalafx.scene.input.TransferMode
+import scalafx.scene.control.{SplitPane, TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
+import scalafx.scene.input.{Clipboard, ClipboardContent, TransferMode}
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
 
-import java.io.File
-import java.net.URI
-import java.nio.file.{FileSystem, LinkOption, Path, Paths, WatchEvent, WatchKey, WatchService}
 import scala.collection.mutable
-import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.jdk.CollectionConverters.{CollectionHasAsScala, MapHasAsJava}
 
 
 /**
@@ -156,6 +149,23 @@ object Main extends JFXApp {
         event.setDropCompleted(false)
     }
     event.consume()
+  })
+
+  navigationPane.tree.setRowFactory((p: javafx.scene.control.TreeTableView[BTreeDataItem]) => {
+    val row = new TreeTableRow[BTreeDataItem]()
+    row.setOnDragDetected((event: MouseEvent) => {
+      val draggedItem = row.treeItem.getValue.getValue
+      draggedItem.tree match {
+        case Some(itemTree) =>
+          val dragBoard = row.startDragAndDrop(TransferMode.Copy)
+          val content = new ClipboardContent()
+          content.putString(draggedItem.name)
+          dragBoard.setContent(content)
+        case _ =>
+      }
+      event.consume()
+    })
+    row
   })
 
   // TODO make this much less hacky =s
