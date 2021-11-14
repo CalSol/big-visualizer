@@ -2,8 +2,11 @@ package bigvis
 package control
 
 import btree.{BTree, FloatAggregator, StringAggregator}
+
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.Includes._
+import scalafx.geometry.Orientation
+import scalafx.scene.control.SplitPane
 import scalafx.scene.input.{DragEvent, TransferMode}
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, StackPane, VBox}
@@ -13,7 +16,9 @@ import scala.collection.mutable
 /**
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
  */
-class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends VBox {
+class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends SplitPane {
+  orientation = Orientation.Vertical
+
   case class ContainedChart(chart: BTreeChart)
 
   protected val charts = mutable.ArrayBuffer[ContainedChart]()
@@ -33,7 +38,6 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends VB
         bTreeData.tree match {
           // TODO figure out a clean way around type erasure
           case tree: BTree[FloatAggregator] @unchecked if tree.aggregatorType == FloatAggregator.aggregator =>
-            println("FloatAgg")
             addChart(new StackPane(delegate = new BTreeChart(
               Seq(ChartDefinition(bTreeData.name, tree, ChartTools.createColors(1).head)),
               1000
@@ -48,16 +52,6 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends VB
     event.consume()
   }
 
-  //  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
-  //    ChartDefinition(f"cell-$i", cellTree, cellColor)
-  //  }
-  //  val chartDefs = Seq()
-
-  //  visualizationPane.addChart(new StackPane(delegate=
-  //    new BTreeChart(chartDefs, 1000)))
-  //  visualizationPane.zoomMax()
-
-
   // Adds a chart to the end of this stack of charts, and sets the axis properties to make it do the right thing
   def addChart(chart: StackPane): Unit = {
     chart.setOnScroll((t: ScrollEvent) => {
@@ -68,7 +62,12 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends VB
     })
 
     setVgrow(chart, Priority.Always)
-    children.add(chart)
+    this.items.add(chart)
+
+    if (this.items.length == 1) {
+      zoomMax()
+    }
+
     charts.append(ContainedChart(
       chart.delegate.asInstanceOf[BTreeChart],
     ))
