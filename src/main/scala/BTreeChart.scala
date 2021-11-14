@@ -5,7 +5,9 @@ import btree._
 import javafx.scene.canvas.{Canvas, GraphicsContext}
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
+import scalafx.Includes._
 import scalafx.beans.property.{DoubleProperty, LongProperty}
+import scalafx.scene.input.{MouseEvent, ScrollEvent}
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 import scala.collection.mutable
@@ -129,6 +131,31 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   // Processed data displayed by the current window
   val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
 
+
+  this.onScroll = (event: ScrollEvent) => {
+    if (event.isShiftDown) {
+      if (event.isControlDown) {
+        val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+        val range = yUpper.value - yLower.value
+        val mouseFrac = 1 - event.getY / getHeight
+        val mouseValue = yLower.value + (range * mouseFrac)
+        val newRange = range * Math.pow(1.01, increment)
+        yLower.value = mouseValue - (newRange * mouseFrac)
+        yUpper.value = mouseValue + (newRange * (1 - mouseFrac))
+      } else {
+        val increment = -event.getDeltaX
+        val range = yUpper.value - yLower.value
+        val shift = (range / 256) * increment
+        yLower.value = yLower.value + shift
+        yUpper.value = yUpper.value + shift
+      }
+      event.consume()
+    }
+  }
+
+  this.onMouseMoved = (event: MouseEvent) => {
+
+  }
 
   // Given a set of parameters (defining the window and resolution) and a data series (BTree),
   // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
