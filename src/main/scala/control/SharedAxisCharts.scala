@@ -1,11 +1,13 @@
 package bigvis.control
 import bigvis.BTreeChart
 import javafx.scene.input.{MouseEvent, ScrollEvent}
+import scalafx.scene.input.TransferMode
 import scalafx.scene.layout.{Priority, StackPane, VBox}
 import scalafx.scene.layout.VBox.setVgrow
+import scalafx.scene.input.DragEvent
+import scalafx.Includes._
 
 import scala.collection.mutable
-
 
 /**
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
@@ -14,6 +16,25 @@ class SharedAxisCharts extends VBox {
   case class ContainedChart(chart: BTreeChart)
 
   protected val charts = mutable.ArrayBuffer[ContainedChart]()
+
+  this.onDragOver = (event: DragEvent) => {
+    event.dragboard.content.get(DataTreeView.BTreeDataType) match {
+      case Some(str: String) =>
+        event.acceptTransferModes(TransferMode.Copy)
+      case _ =>
+    }
+    event.consume()
+  }
+
+  //  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
+  //    ChartDefinition(f"cell-$i", cellTree, cellColor)
+  //  }
+  //  val chartDefs = Seq()
+
+  //  visualizationPane.addChart(new StackPane(delegate=
+  //    new BTreeChart(chartDefs, 1000)))
+  //  visualizationPane.zoomMax()
+
 
   // Adds a chart to the end of this stack of charts, and sets the axis properties to make it do the right thing
   def addChart(chart: StackPane): Unit = {

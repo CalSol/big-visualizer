@@ -25,19 +25,7 @@ object Main extends JFXApp {
     setVgrow(tree, Priority.Always)
   }
 
-
-  // TODO make this much less hacky =s
-//  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
-//    ChartDefinition(f"cell-$i", cellTree, cellColor)
-//  }
-//  val chartDefs = Seq()
-
-  // TODO the wrapping doesn't belong here
   val visualizationPane = new SharedAxisCharts
-//  visualizationPane.addChart(new StackPane(delegate=
-//    new BTreeChart(chartDefs, 1000)))
-
-//  visualizationPane.zoomMax()
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
@@ -47,7 +35,6 @@ object Main extends JFXApp {
       val splitPane = new SplitPane {
         items ++= Seq(navigationPane, visualizationPane)
         SplitPane.setResizableWithParent(navigationPane, false)
-//        SplitPane.setResizableWithParent(visualizationPane, false)
       }
       splitPane.setDividerPositions(0.25)
       root = splitPane

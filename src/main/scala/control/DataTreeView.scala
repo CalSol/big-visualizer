@@ -1,9 +1,9 @@
 package bigvis.control
 import bigvis.{BTreeData, CsvLoader}
-import javafx.scene.input.{DragEvent, MouseEvent}
 import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
-import scalafx.scene.input.{ClipboardContent, DataFormat, TransferMode}
+import scalafx.scene.input.{ClipboardContent, DataFormat, TransferMode, DragEvent, MouseEvent}
+import scalafx.Includes._
 
 import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 
@@ -36,13 +36,13 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
     }
   )
 
-  this.setOnDragOver((event: DragEvent) => {
+  this.onDragOver = (event: DragEvent) => {
     event.acceptTransferModes(TransferMode.Copy)
     event.consume()
-  })
+  }
 
-  this.setOnDragDropped((event: DragEvent) => {
-    event.getDragboard.getFiles.asScala.toSeq match {
+  this.onDragDropped = (event: DragEvent) => {
+    event.dragboard.files.toSeq match {
       case Seq(file) if file.getName.endsWith(".csv") =>
         val statusTreeItem = new TreeItem(new DataTreeItem(file.getName, "loading", None))
         this.root.value.getChildren.add(statusTreeItem)
@@ -75,11 +75,11 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
         event.setDropCompleted(false)
     }
     event.consume()
-  })
+  }
 
-  this.setRowFactory((p: javafx.scene.control.TreeTableView[DataTreeItem]) => {
+  this.rowFactory = (p: TreeTableView[DataTreeItem]) => {
     val row = new TreeTableRow[DataTreeItem]()
-    row.setOnDragDetected((event: MouseEvent) => {
+    row.onDragDetected = (event: MouseEvent) => {
       val draggedItem = row.treeItem.getValue.getValue
       draggedItem.payload match {
         case bTreeData: BTreeData =>
@@ -90,7 +90,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
         case _ =>
       }
       event.consume()
-    })
+    }
     row
-  })
+  }
 }
