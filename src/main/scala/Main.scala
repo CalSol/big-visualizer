@@ -1,5 +1,6 @@
 package bigvis
 
+import bigvis.control.DataTreeView
 import javafx.scene.input.{DataFormat, DragEvent, MouseEvent, ScrollEvent}
 import javafx.util.Callback
 import scalafx.application.JFXApp
@@ -105,68 +106,11 @@ object Main extends JFXApp {
     // https://github.com/scalafx/ScalaFX-Tutorials/blob/master/slick-table/src/main/scala/org/scalafx/slick_table/ContactsView.scala
     // and tree view example at
     // https://github.com/scalafx/scalafx/blob/master/scalafx-demos/src/main/scala/scalafx/controls/treetableview/TreeTableViewWithTwoColumns.scala
-    val tree = new TreeTableView[BTreeDataItem](dataRoot) {
-      columns ++= Seq(
-        new TreeTableColumn[BTreeDataItem, String] {
-          text = "Name"
-          cellValueFactory = { _.value.value.value.nameProp }
-        },
-        new TreeTableColumn[BTreeDataItem, String] {
-          text = "Data"
-          cellValueFactory = { _.value.value.value.dataProp }
-        }
-      )
-    }
+    val tree = new DataTreeView(dataRoot)
     children = Seq(tree)
     setVgrow(tree, Priority.Always)
   }
 
-  navigationPane.tree.setOnDragOver((event: DragEvent) => {
-    event.acceptTransferModes(TransferMode.Copy)
-    event.consume()
-  })
-  navigationPane.tree.setOnDragDropped((event: DragEvent) => {
-    event.getDragboard.getFiles.asScala.toSeq match {
-      case Seq(file) if file.getName.endsWith(".csv") =>
-        val statusTreeItem = new TreeItem(BTreeDataItem(file.getName, "loading", None))
-        dataRoot.children.append(statusTreeItem)
-
-        new Thread(() => {  // read in a separate thread, so the UI loop doesn't freeze
-          try {
-            val loadedDataItems = CsvLoader.load(file.toPath) { status =>
-              statusTreeItem.value.value.dataProp.value = status
-            }
-            System.gc()  // this saves ~1-2 GB of memory
-
-            val loadedTreeItems = loadedDataItems.map(new TreeItem(_).delegate)
-            dataRoot.children.appendAll(loadedTreeItems)
-          } finally {
-            dataRoot.children.remove(statusTreeItem)
-          }
-        }).start()
-        event.setDropCompleted(true)
-      case _ =>
-        event.setDropCompleted(false)
-    }
-    event.consume()
-  })
-
-  navigationPane.tree.setRowFactory((p: javafx.scene.control.TreeTableView[BTreeDataItem]) => {
-    val row = new TreeTableRow[BTreeDataItem]()
-    row.setOnDragDetected((event: MouseEvent) => {
-      val draggedItem = row.treeItem.getValue.getValue
-      draggedItem.tree match {
-        case Some(itemTree) =>
-          val dragBoard = row.startDragAndDrop(TransferMode.Copy)
-          val content = new ClipboardContent()
-          content.putString(draggedItem.name)
-          dragBoard.setContent(content)
-        case _ =>
-      }
-      event.consume()
-    })
-    row
-  })
 
   // TODO make this much less hacky =s
 //  val chartDefs = (cellTrees zip ChartTools.createColors(cellTrees.length)).zipWithIndex.map { case ((cellTree, cellColor), i) =>
