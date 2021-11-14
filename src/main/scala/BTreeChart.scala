@@ -2,6 +2,7 @@ package bigvis
 
 import btree._
 
+import bigvis.control.SharedAxisCharts
 import javafx.scene.canvas.{Canvas, GraphicsContext}
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
@@ -117,16 +118,11 @@ object BTreeChart {  // rendering properties
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
-class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackPane {
+class BTreeChart(parent: SharedAxisCharts, datasets: Seq[ChartDefinition], timeBreak: Long) extends StackPane {
   import BTreeChart._
-
-  val xLower: LongProperty = LongProperty(datasets.map(_.data.minTime).min)
-  val xUpper: LongProperty = LongProperty(datasets.map(_.data.maxTime).max)
 
   val yLower: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.min).min)
   val yUpper: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.max).max)
-
-  val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
 
   // Processed data displayed by the current window
   val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
@@ -211,20 +207,20 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
   widthProperty.addListener(_ => redrawFromGrid())
   heightProperty.addListener(_ => redrawFromGrid())
-  xLower.addListener(_ => redrawFromGrid())
-  xUpper.addListener(_ => redrawFromGrid())
+  parent.xLower.addListener(_ => redrawFromGrid())
+  parent.xUpper.addListener(_ => redrawFromGrid())
 
   yLower.addListener(_ => redrawFromChart())
   yUpper.addListener(_ => redrawFromChart())
 
-  cursorXPos.addListener(_ => redrawFromCursor())
+  parent.cursorXPos.addListener(_ => redrawFromCursor())
 
   val timeZone = ZoneId.of(ZoneId.SHORT_IDS.get("CST"))  // TODO user-configurable
 
   def redrawFromGrid(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value, timeZone)
+      parent.xLower.value, parent.xUpper.value, yLower.value, yUpper.value, timeZone)
     redrawGrid(scale)
     redrawChart(scale)
     redrawCursor(scale)
@@ -233,7 +229,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   def redrawFromChart(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value, timeZone)
+      parent.xLower.value, parent.xUpper.value, yLower.value, yUpper.value, timeZone)
     redrawChart(scale)
     redrawCursor(scale)
   }
@@ -241,7 +237,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   def redrawFromCursor(): Unit = {
     // TODO can we dedup some of these?
     val scale = ChartParameters(getWidth.toInt, getHeight.toInt,
-      xLower.value, xUpper.value, yLower.value, yUpper.value, timeZone)
+      parent.xLower.value, parent.xUpper.value, yLower.value, yUpper.value, timeZone)
     redrawCursor(scale)
   }
 
@@ -262,7 +258,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   }
 
   protected def redrawCursor(scale: ChartParameters): Unit = {
-    val cursorPos = cursorXPos.value
+    val cursorPos = parent.cursorXPos.value
     val cursorTime = scale.xPosToVal(cursorPos)
 
     // TODO get rod of the null

@@ -85,7 +85,7 @@ class ChartCanvas extends ResizableCanvas {
     gc.clearRect(0, 0, scale.width, scale.height)
 
     // TODO proper scales for Y axis
-    gc.fillText(s"${scale.yMax}", 0, scale.height)
+    gc.fillText(s"${scale.yMin}", 0, scale.height)
     gc.fillText(s"${scale.yMax}", 0, 10)
 
     val renderTime = timeExec {
