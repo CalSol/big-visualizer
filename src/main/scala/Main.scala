@@ -1,6 +1,6 @@
 package bigvis
 
-import control.{DataTreeView, SharedAxisCharts}
+import control.{DataTreeView, SharedAxisCharts, DataTreeItem}
 
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -15,7 +15,7 @@ object Main extends JFXApp {
 
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
-  val dataRoot = new TreeItem(BTreeDataItem("root", "", None)) {
+  val dataRoot = new TreeItem(new DataTreeItem("root", "", None)) {
     expanded = true
     children = Seq()
   }

@@ -12,7 +12,6 @@ import scala.util.Try
 
 trait DataBuilder {
   def name: String
-  def desc: String
   def makeTree: UntypedBTree
 }
 
@@ -33,7 +32,6 @@ class DummyParser(val name: String) extends Parser {
 
   override def getBuilder: DataBuilder = new DataBuilder {
     override def name = DummyParser.this.name
-    override def desc = "Dummy"
     override def makeTree = throw new IllegalArgumentException("can't create tree from DummyParser")
   }
 }
@@ -52,7 +50,6 @@ class StringParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
-  override def desc = s"String, ${dataBuilder.length}"
   override def makeTree: BTree[StringAggregator] = {
     val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder)
@@ -74,7 +71,6 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
-  override def desc = s"Double, ${dataBuilder.length}"
   override def makeTree: BTree[FloatAggregator] = {
     val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder)
@@ -108,7 +104,6 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
 
-  override def desc = s"DoubleArray, ${dataBuilder.length}"
   override def makeTree: BTree[BTreeAggregator] = {
     // TODO implement me
     new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
@@ -116,10 +111,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
 }
 
 
-case class BTreeDataItem(name: String, desc: String, tree: Option[UntypedBTree]) {
-  val nameProp = StringProperty(name)
-  val dataProp = StringProperty(desc)
-}
+case class BTreeData(name: String, tree: UntypedBTree)
 
 
 object CsvLoader {
@@ -128,7 +120,7 @@ object CsvLoader {
 
   val ROWS_BETWEEN_UPDATES = 65536
 
-  def load(path: Path)(status: String => Unit): Seq[BTreeDataItem] = {
+  def load(path: Path)(status: String => Unit): Seq[BTreeData] = {
     status(s"determining types")
     val fileLength = path.toFile.length().toFloat
 
@@ -200,7 +192,7 @@ object CsvLoader {
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
     dataBuilders.toSeq.map { dataBuilder =>
       status(s"inserting: ${dataBuilder.name}")
-      BTreeDataItem(dataBuilder.name, dataBuilder.desc, Some(dataBuilder.makeTree))
+      BTreeData(dataBuilder.name, dataBuilder.makeTree)
     }
   }
 }
