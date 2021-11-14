@@ -15,17 +15,12 @@ object Main extends JFXApp {
 
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
-  val dataRoot = new TreeItem(new DataTreeItem("root", "", None)) {
-    expanded = true
-    children = Seq()
-  }
-
   val navigationPane = new VBox {
     // See table view example at
     // https://github.com/scalafx/ScalaFX-Tutorials/blob/master/slick-table/src/main/scala/org/scalafx/slick_table/ContactsView.scala
     // and tree view example at
     // https://github.com/scalafx/scalafx/blob/master/scalafx-demos/src/main/scala/scalafx/controls/treetableview/TreeTableViewWithTwoColumns.scala
-    val tree = new DataTreeView(dataRoot)
+    val tree = new DataTreeView()
     children = Seq(tree)
     setVgrow(tree, Priority.Always)
   }

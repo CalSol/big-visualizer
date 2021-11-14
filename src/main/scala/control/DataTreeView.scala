@@ -5,7 +5,7 @@ import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
 import scalafx.scene.input.{ClipboardContent, DataFormat, TransferMode}
 
-import scala.jdk.CollectionConverters.ListHasAsScala
+import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
 
 
 object DataTreeView {
@@ -19,7 +19,12 @@ class DataTreeItem(name: String, desc: String, val payload: Any = None) {
 }
 
 
-class DataTreeView(root: TreeItem[DataTreeItem]) extends TreeTableView[DataTreeItem](root) {
+class DataTreeView extends TreeTableView[DataTreeItem]() {
+  this.setRoot(new TreeItem(new DataTreeItem("root", "", None)) {
+    expanded = true
+    children = Seq()
+  })
+
   columns ++= Seq(
     new TreeTableColumn[DataTreeItem, String] {
       text = "Name"
@@ -40,7 +45,7 @@ class DataTreeView(root: TreeItem[DataTreeItem]) extends TreeTableView[DataTreeI
     event.getDragboard.getFiles.asScala.toSeq match {
       case Seq(file) if file.getName.endsWith(".csv") =>
         val statusTreeItem = new TreeItem(new DataTreeItem(file.getName, "loading", None))
-        this.root.children.append(statusTreeItem)
+        this.root.value.getChildren.add(statusTreeItem)
 
         new Thread(() => {  // read in a separate thread, so the UI loop doesn't freeze
           try {
@@ -56,13 +61,13 @@ class DataTreeView(root: TreeItem[DataTreeItem]) extends TreeTableView[DataTreeI
                 loaded
               )).delegate
             }
-            this.root.children.appendAll(loadedTreeItems)
+            this.root.value.getChildren.addAll(loadedTreeItems.asJava)
           } catch {
             case e: Exception =>
               statusTreeItem.value.value.dataProp.value = e.toString
               Thread.sleep(5000)
           } finally {
-            this.root.children.remove(statusTreeItem)
+            this.root.value.getChildren.remove(statusTreeItem)
           }
         }).start()
         event.setDropCompleted(true)
