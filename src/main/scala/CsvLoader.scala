@@ -23,13 +23,18 @@ trait Parser {
 }
 
 
+object Parser {
+  val BTREE_NODE_SIZE = 16
+}
+
+
 class DummyParser(val name: String) extends Parser {
   def parseCell(time: Long, value: String): Unit = {}
 
   override def getBuilder: DataBuilder = new DataBuilder {
     override def name = DummyParser.this.name
     override def desc = "Dummy"
-    override def makeTree = new BTree(FloatAggregator.aggregator, 16)
+    override def makeTree = throw new IllegalArgumentException("can't create tree from DummyParser")
   }
 }
 
@@ -43,14 +48,13 @@ class StringParser(val name: String) extends Parser with DataBuilder {
     if (value.isEmpty) {
       return
     }
-
     dataBuilder.append((time, value))
   }
 
   override def getBuilder: DataBuilder = this
   override def desc = s"String, ${dataBuilder.length}"
   override def makeTree: BTree[StringAggregator] = {
-    val tree = new BTree(StringAggregator.aggregator, 16)
+    val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder)
     tree
   }
@@ -72,7 +76,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
   override def getBuilder: DataBuilder = this
   override def desc = s"Double, ${dataBuilder.length}"
   override def makeTree: BTree[FloatAggregator] = {
-    val tree = new BTree(FloatAggregator.aggregator, 16)
+    val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder)
     tree
   }
@@ -107,7 +111,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
   override def desc = s"DoubleArray, ${dataBuilder.length}"
   override def makeTree: BTree[BTreeAggregator] = {
     // TODO implement me
-    new BTree(FloatAggregator.aggregator, 16)
+    new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
   }
 }
 
@@ -122,10 +126,11 @@ object CsvLoader {
   val SCAN_ROWS = 16  // rows to scan to determine type of a cell
   val ARRAY_MIN_LEN = 4
 
-  val ROWS_BETWEEN_UPDATES = 16384
+  val ROWS_BETWEEN_UPDATES = 65536
 
   def load(path: Path)(status: String => Unit): Seq[BTreeDataItem] = {
-    status(s"loading")
+    status(s"determining types")
+    val fileLength = path.toFile.length().toFloat
 
     val csv = CsvReader.builder().build(path)
     val rowIter = csv.iterator().asScala
@@ -161,8 +166,6 @@ object CsvLoader {
       }
     }
 
-    status(s"determined types")
-
     // Build up the parsers, in the same order as the data they will parse (except the first time element)
     val parsers = (headers zip dataTypes) map {
       case (header, dataType) if doubleArraysMap.contains(header) =>
@@ -175,28 +178,28 @@ object CsvLoader {
         new DummyParser(header)
     }
 
-    status(s"created parsers")
-
     // Actually read the CSVs
     var count: Long = 0
     val loadTime = timeExec {
       (firstRows ++ rowIter).foreach { rawRow =>
+        if (count % ROWS_BETWEEN_UPDATES == 0) {
+          status(s"reading: ${(rawRow.getStartingOffset / fileLength * 100).toInt}%")
+        }
+
         val row = rawRow.getFields.asScala
         val time = (row.head.toDouble * 1000).toLong
         (row.tail zip parsers).foreach { case (cell, parser) =>
           parser.parseCell(time, cell)
         }
+        rawRow.getStartingOffset
 
         count += 1
-
-        if (count % ROWS_BETWEEN_UPDATES == 0) {
-          status(s"read $count rows")
-        }
       }
     }
 
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
     dataBuilders.toSeq.map { dataBuilder =>
+      status(s"inserting: ${dataBuilder.name}")
       BTreeDataItem(dataBuilder.name, dataBuilder.desc, Some(dataBuilder.makeTree))
     }
   }
