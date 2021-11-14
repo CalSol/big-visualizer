@@ -9,7 +9,7 @@ import scalafx.geometry.Orientation
 import scalafx.scene.control.SplitPane
 import scalafx.scene.input.{DragEvent, TransferMode}
 import scalafx.scene.layout.VBox.setVgrow
-import scalafx.scene.layout.{Priority, StackPane, VBox}
+import scalafx.scene.layout.{Priority, StackPane}
 
 import scala.collection.mutable
 
@@ -19,9 +19,10 @@ import scala.collection.mutable
 class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends SplitPane {
   orientation = Orientation.Vertical
 
-  case class ContainedChart(chart: BTreeChart)
-
-  protected val charts = mutable.ArrayBuffer[ContainedChart]()
+  // Returns children as charts
+  protected def charts: Seq[BTreeChart] = this.items.collect {
+    case chart: BTreeChart => chart
+  }.toSeq
 
   this.onDragOver = (event: DragEvent) => {
     event.dragboard.content.get(DataTreeView.BTreeDataType) match {
@@ -38,10 +39,10 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends Sp
         bTreeData.tree match {
           // TODO figure out a clean way around type erasure
           case tree: BTree[FloatAggregator] @unchecked if tree.aggregatorType == FloatAggregator.aggregator =>
-            addChart(new StackPane(delegate = new BTreeChart(
+            addChart(new BTreeChart(
               Seq(ChartDefinition(bTreeData.name, tree, ChartTools.createColors(1).head)),
               1000
-            )))
+            ))
           case tree: BTree[StringAggregator] @unchecked if tree.aggregatorType == StringAggregator.aggregator =>
             ???
           case tree => throw new IllegalArgumentException(s"bad tree $tree of type ${tree.getClass.getName}")
@@ -67,16 +68,12 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends Sp
     if (this.items.length == 1) {
       zoomMax()
     }
-
-    charts.append(ContainedChart(
-      chart.delegate.asInstanceOf[BTreeChart],
-    ))
   }
 
   protected def onScroll(event: ScrollEvent): Unit = {
     event.consume()
 
-    val lastChart = charts.last.chart
+    val lastChart = charts.last
     if (event.isShiftDown) {
       if (event.isControlDown) {
         val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
@@ -85,16 +82,16 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends Sp
         val mouseValue = lastChart.yLower.value + (range * mouseFrac)
         val newRange = range * Math.pow(1.01, increment)
         charts.foreach(chart => {
-          chart.chart.yLower.value = mouseValue - (newRange * mouseFrac)
-          chart.chart.yUpper.value = mouseValue + (newRange * (1 - mouseFrac))
+          chart.yLower.value = mouseValue - (newRange * mouseFrac)
+          chart.yUpper.value = mouseValue + (newRange * (1 - mouseFrac))
         })
       } else {
         val increment = -event.getDeltaX
         val range = lastChart.yUpper.value - lastChart.yLower.value
         val shift = (range / 256) * increment
         charts.foreach(chart => {
-          chart.chart.yLower.value = lastChart.yLower.value + shift
-          chart.chart.yUpper.value = lastChart.yUpper.value + shift
+          chart.yLower.value = lastChart.yLower.value + shift
+          chart.yUpper.value = lastChart.yUpper.value + shift
         })
       }
     } else {
@@ -107,36 +104,36 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends Sp
 
         val newRange = range * Math.pow(1.01, increment)
         charts.foreach(chart => {
-          chart.chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
-          chart.chart.xUpper.value = mouseTime + (newRange * (1 - mouseFrac)).toLong
+          chart.xLower.value = mouseTime - (newRange * mouseFrac).toLong
+          chart.xUpper.value = mouseTime + (newRange * (1 - mouseFrac)).toLong
         })
       } else {
         val increment = -event.getDeltaY
         val range = lastChart.xUpper.value - lastChart.xLower.value
         val shift = (range / 256) * increment
         charts.foreach(chart => {
-          chart.chart.xLower.value = lastChart.xLower.value + shift.toLong
-          chart.chart.xUpper.value = lastChart.xUpper.value + shift.toLong
+          chart.xLower.value = lastChart.xLower.value + shift.toLong
+          chart.xUpper.value = lastChart.xUpper.value + shift.toLong
         })
       }
     }
   }
   protected def onMouse(event: MouseEvent): Unit = {
     charts.foreach(chart => {
-      chart.chart.cursorXPos.value = event.getX
+      chart.cursorXPos.value = event.getX
     })
   }
 
   def zoomMax(): Unit = {
-    val minXTime = charts.map(_.chart.xLower.value).min
-    val maxXTime = charts.map(_.chart.xUpper.value).max
-    val minYTime = charts.map(_.chart.yLower.value).min
-    val maxYTime = charts.map(_.chart.yUpper.value).max
+    val minXTime = charts.map(_.xLower.value).min
+    val maxXTime = charts.map(_.xUpper.value).max
+    val minYTime = charts.map(_.yLower.value).min
+    val maxYTime = charts.map(_.yUpper.value).max
     charts.foreach(chart => {
-      chart.chart.xLower.value = minXTime
-      chart.chart.xUpper.value = maxXTime
-      chart.chart.yLower.value = minYTime
-      chart.chart.yUpper.value = maxYTime
+      chart.xLower.value = minXTime
+      chart.xUpper.value = maxXTime
+      chart.yLower.value = minYTime
+      chart.yUpper.value = maxYTime
     })
   }
 }
