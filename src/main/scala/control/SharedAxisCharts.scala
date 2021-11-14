@@ -1,12 +1,12 @@
-package bigvis.control
-import bigvis.btree.{BTree, FloatAggregator, StringAggregator}
-import bigvis.{BTreeChart, BTreeData, ChartDefinition, ChartTools}
+package bigvis
+package control
+
+import btree.{BTree, FloatAggregator, StringAggregator}
 import javafx.scene.input.{MouseEvent, ScrollEvent}
-import scalafx.scene.input.TransferMode
-import scalafx.scene.layout.{Priority, StackPane, VBox}
-import scalafx.scene.layout.VBox.setVgrow
-import scalafx.scene.input.DragEvent
 import scalafx.Includes._
+import scalafx.scene.input.{DragEvent, TransferMode}
+import scalafx.scene.layout.VBox.setVgrow
+import scalafx.scene.layout.{Priority, StackPane, VBox}
 
 import scala.collection.mutable
 
@@ -28,18 +28,18 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends VB
   }
 
   this.onDragDropped = (event: DragEvent) => {
-    println("DROPPED")
     event.dragboard.content.get(DataTreeView.BTreeDataType) match {
       case Some(str: String) => dataItems.get(str).foreach { bTreeData =>
-        println(str)
         bTreeData.tree match {
-          case tree: BTree[FloatAggregator] =>
+          // TODO figure out a clean way around type erasure
+          case tree: BTree[FloatAggregator] @unchecked if tree.aggregatorType == FloatAggregator.aggregator =>
+            println("FloatAgg")
             addChart(new StackPane(delegate = new BTreeChart(
               Seq(ChartDefinition(bTreeData.name, tree, ChartTools.createColors(1).head)),
               1000
             )))
-            println("ADDED")
-          case tree: BTree[StringAggregator] =>
+          case tree: BTree[StringAggregator] @unchecked if tree.aggregatorType == StringAggregator.aggregator =>
+            ???
           case tree => throw new IllegalArgumentException(s"bad tree $tree of type ${tree.getClass.getName}")
         }
       }

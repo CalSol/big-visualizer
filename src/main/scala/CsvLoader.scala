@@ -1,8 +1,8 @@
 package bigvis
 
-import bigvis.btree.{BTree, BTreeAggregator, FloatAggregator, StringAggregator, UntypedBTree}
+import btree._
+
 import de.siegmar.fastcsv.reader.CsvReader
-import scalafx.beans.property.StringProperty
 
 import java.nio.file.Path
 import scala.collection.mutable
@@ -31,7 +31,7 @@ class DummyParser(val name: String) extends Parser {
   def parseCell(time: Long, value: String): Unit = {}
 
   override def getBuilder: DataBuilder = new DataBuilder {
-    override def name = DummyParser.this.name
+    override def name: String = DummyParser.this.name
     override def makeTree = throw new IllegalArgumentException("can't create tree from DummyParser")
   }
 }

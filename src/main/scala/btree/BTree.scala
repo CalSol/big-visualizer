@@ -2,6 +2,7 @@ package bigvis
 package btree
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object BTree {
   type TimestampType = Long
@@ -37,8 +38,7 @@ sealed trait UntypedBTree {
  *
  * The nodeSize parameter is the maximum number of children it has ("order" / m in the Wikipedia page).
  */
-class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
-                                               val nodeSize: Int) extends UntypedBTree {
+class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val nodeSize: Int) extends UntypedBTree {
   // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): AggregatorType#NodeType =
     aggregator.fromLeaves(data.asInstanceOf[Seq[(BTree.TimestampType, this.aggregator.LeafType)]])
