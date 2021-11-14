@@ -1,11 +1,9 @@
 package bigvis.control
 import bigvis.{BTreeData, CsvLoader}
+import scalafx.Includes._
 import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
-import scalafx.scene.input.{ClipboardContent, DataFormat, TransferMode, DragEvent, MouseEvent}
-import scalafx.Includes._
-
-import scala.jdk.CollectionConverters.{ListHasAsScala, SeqHasAsJava}
+import scalafx.scene.input._
 
 
 object DataTreeView {
@@ -61,7 +59,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
                 loaded
               )).delegate
             }
-            this.root.value.getChildren.addAll(loadedTreeItems.asJava)
+            this.root.value.getChildren.appendAll(loadedTreeItems)
           } catch {
             case e: Exception =>
               statusTreeItem.value.value.dataProp.value = e.toString
