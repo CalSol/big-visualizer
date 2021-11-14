@@ -1,5 +1,6 @@
 package bigvis.control
-import bigvis.BTreeChart
+import bigvis.btree.{BTree, FloatAggregator, StringAggregator}
+import bigvis.{BTreeChart, BTreeData, ChartDefinition, ChartTools}
 import javafx.scene.input.{MouseEvent, ScrollEvent}
 import scalafx.scene.input.TransferMode
 import scalafx.scene.layout.{Priority, StackPane, VBox}
@@ -12,7 +13,7 @@ import scala.collection.mutable
 /**
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
  */
-class SharedAxisCharts extends VBox {
+class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends VBox {
   case class ContainedChart(chart: BTreeChart)
 
   protected val charts = mutable.ArrayBuffer[ContainedChart]()
@@ -22,6 +23,27 @@ class SharedAxisCharts extends VBox {
       case Some(str: String) =>
         event.acceptTransferModes(TransferMode.Copy)
       case _ =>
+    }
+    event.consume()
+  }
+
+  this.onDragDropped = (event: DragEvent) => {
+    println("DROPPED")
+    event.dragboard.content.get(DataTreeView.BTreeDataType) match {
+      case Some(str: String) => dataItems.get(str).foreach { bTreeData =>
+        println(str)
+        bTreeData.tree match {
+          case tree: BTree[FloatAggregator] =>
+            addChart(new StackPane(delegate = new BTreeChart(
+              Seq(ChartDefinition(bTreeData.name, tree, ChartTools.createColors(1).head)),
+              1000
+            )))
+            println("ADDED")
+          case tree: BTree[StringAggregator] =>
+          case tree => throw new IllegalArgumentException(s"bad tree $tree of type ${tree.getClass.getName}")
+        }
+      }
+      case _ =>  // shouldn't get here
     }
     event.consume()
   }

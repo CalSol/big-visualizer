@@ -1,11 +1,11 @@
 package bigvis
 
-import control.{DataTreeView, SharedAxisCharts, DataTreeItem}
+import control.{DataTreeView, SharedAxisCharts}
 
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.scene.Scene
-import scalafx.scene.control.{SplitPane, TreeItem}
+import scalafx.scene.control.SplitPane
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, VBox}
 
@@ -25,7 +25,7 @@ object Main extends JFXApp {
     setVgrow(tree, Priority.Always)
   }
 
-  val visualizationPane = new SharedAxisCharts
+  val visualizationPane = new SharedAxisCharts(navigationPane.tree.dataItems)
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"

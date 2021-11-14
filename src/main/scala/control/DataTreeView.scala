@@ -5,6 +5,8 @@ import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
 import scalafx.scene.input._
 
+import scala.collection.mutable
+
 
 object DataTreeView {
   val BTreeDataType = new DataFormat ("application/x-java-serialized-object")
@@ -22,6 +24,9 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
     expanded = true
     children = Seq()
   })
+
+  // All data items available, used for drag-and-drop
+  val dataItems = mutable.HashMap[String, BTreeData]()
 
   columns ++= Seq(
     new TreeTableColumn[DataTreeItem, String] {
@@ -43,7 +48,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
     event.dragboard.files.toSeq match {
       case Seq(file) if file.getName.endsWith(".csv") =>
         val statusTreeItem = new TreeItem(new DataTreeItem(file.getName, "loading", None))
-        this.root.value.getChildren.add(statusTreeItem)
+        this.getRoot.getChildren.append(statusTreeItem)
 
         new Thread(() => {  // read in a separate thread, so the UI loop doesn't freeze
           try {
@@ -52,20 +57,21 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
             }
             System.gc() // this saves ~1-2 GB of memory
 
-            val loadedTreeItems = loadedData.map { loaded =>
-              new TreeItem(new DataTreeItem(
+            loadedData.foreach { loaded =>
+              val treeItem = new TreeItem(new DataTreeItem(
                 loaded.name,
                 s"${loaded.tree.length} (${loaded.tree.aggregatorType.getClass.getName.split('.').last})",
                 loaded
-              )).delegate
+              ))
+              dataItems.put(loaded.name, loaded)
+              this.getRoot.getChildren.append(treeItem)
             }
-            this.root.value.getChildren.appendAll(loadedTreeItems)
           } catch {
             case e: Exception =>
               statusTreeItem.value.value.dataProp.value = e.toString
               Thread.sleep(5000)
           } finally {
-            this.root.value.getChildren.remove(statusTreeItem)
+            this.getRoot.getChildren.remove(statusTreeItem)
           }
         }).start()
         event.setDropCompleted(true)
