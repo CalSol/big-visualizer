@@ -6,6 +6,7 @@ import btree.{BTree, BTreeAggregate, BTreeData, BTreeLeaf, BTreeResampledNode, B
 import javafx.scene.paint.Color
 import scalafx.Includes._
 import scalafx.beans.property.DoubleProperty
+import scalafx.collections.ObservableBuffer
 import scalafx.scene.input.ScrollEvent
 
 import scala.collection.mutable
@@ -34,10 +35,12 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   val yLower: DoubleProperty = DoubleProperty(0)
   val yUpper: DoubleProperty = DoubleProperty(0)
 
-  protected val datasets = mutable.ListBuffer[FloatBTreeSeries]()
+  protected val datasets = ObservableBuffer[FloatBTreeSeries]()
 
-  def addDataset(dataset: BTreeSeries): Unit = {
-    require(dataset.tree.aggregatorType == FloatAggregator.aggregator)
+  override def addDataset(dataset: BTreeSeries): Boolean = {
+    if (dataset.tree.aggregatorType != FloatAggregator.aggregator) {
+      return false
+    }
     val tree = dataset.tree.asInstanceOf[BTree[FloatAggregator]]
     if (datasets.isEmpty) {
       yLower.value = tree.rootData.min
@@ -48,6 +51,8 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
       dataset.name, tree,
       ChartTools.colorForIndex(datasets.length)
     ))
+
+    true
   }
 
   // Processed data displayed by the current window
@@ -109,19 +114,19 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   }
 
   val chartCanvas = new ChartCanvas()
-  children.append(chartCanvas)
+  chartsPane.children.append(chartCanvas)
   chartCanvas.widthProperty().bind(width)
   chartCanvas.heightProperty().bind(height)
-  Seq(width, height, parent.xLower, parent.xUpper, yLower, yUpper).foreach { observable =>
-    observable.onChange(redrawChart())
+  Seq(width, height, parent.xLower, parent.xUpper, yLower, yUpper, datasets).foreach { observable =>
+    observable.onInvalidate(redrawChart())
   }
 
   val cursorCanvas = new CursorCanvas()
-  children.append(cursorCanvas)
+  chartsPane.children.append(cursorCanvas)
   cursorCanvas.widthProperty().bind(width)
   cursorCanvas.heightProperty().bind(height)
-  Seq(width, height, parent.xLower, parent.xUpper, yLower, yUpper, parent.cursorXPos).foreach { observable =>
-    observable.onChange(redrawCursor())
+  Seq(width, height, parent.xLower, parent.xUpper, yLower, yUpper, parent.cursorXPos, datasets).foreach { observable =>
+    observable.onInvalidate(redrawCursor())
   }
 
   // Refresh the windowSections 'cache' and redraw the chart

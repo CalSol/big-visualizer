@@ -3,8 +3,12 @@ package control
 
 import btree._
 
-import scalafx.scene.layout.StackPane
 import javafx.scene.paint.Color
+import scalafx.Includes._
+import scalafx.scene.input.{DragEvent, TransferMode}
+import scalafx.scene.layout.StackPane
+import scalafx.scene.shape.Rectangle
+
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 
 
@@ -74,12 +78,57 @@ object BTreeChart {  // rendering properties
 
 
 // Base BTreeChart class that provides time axis functionality.
-class BaseBTreeChart(parent: SharedAxisCharts) extends StackPane {
+abstract class BaseBTreeChart(parent: SharedAxisCharts) extends StackPane {
   minWidth = 0  // allow resizing down
   minHeight = 0  // allow resizing down
 
+
+  protected val dragRect = Rectangle(0, 20, width.value, height.value - 40)
+  dragRect.setFill(Color.TRANSPARENT)
+  Seq(width, height).foreach { observable =>
+    observable.onChange{
+      dragRect.setWidth(width.value)
+      dragRect.setHeight(height.value - 40)
+    }
+  }
+
+  dragRect.onDragOver = (event: DragEvent) => {
+    event.dragboard.content.get(DataTreeView.BTreeDataType) match {
+      case Some(str: String) =>
+        event.acceptTransferModes(TransferMode.Copy)
+        dragRect.setFill(Color.BLUE.deriveColor(0, 1, 1, 0.5))
+      case _ =>
+        dragRect.setFill(Color.RED.deriveColor(0, 1, 1, 0.5))
+    }
+    event.consume()
+  }
+  dragRect.onDragExited = (event: DragEvent) => {
+    dragRect.setFill(Color.TRANSPARENT)
+    event.consume()
+  }
+  dragRect.onDragDropped = (event: DragEvent) => {
+    event.dragboard.content.get(DataTreeView.BTreeDataType) match {
+      case Some(str: String) => parent.dataItems.get(str).foreach { bTreeData =>
+        addDataset(bTreeData)
+        dragRect.setFill(Color.TRANSPARENT)
+      }
+      case _ => // shouldn't get here
+    }
+    event.consume()
+  }
+
+  // Adds a dataset, returning whether it was successfully added
+  def addDataset(series: BTreeSeries): Boolean
+
+  val chartsPane = new StackPane {
+    minWidth = 0
+    minHeight = 0
+  }
+  children.append(chartsPane)
+  children.append(dragRect)  // must be on top
+
   val gridCanvas = new GridCanvas()
-  children.append(gridCanvas)
+  chartsPane.children.append(gridCanvas)
   gridCanvas.widthProperty().bind(width)
   gridCanvas.heightProperty().bind(height)
   Seq(width, height, parent.xLower, parent.xUpper).foreach { observable =>
