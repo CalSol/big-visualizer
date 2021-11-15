@@ -1,5 +1,7 @@
 package bigvis
 
+import control.{BaseChartCanvas, ChartCommon, ChartParameters, RenderHelper}
+
 import javafx.scene.canvas.GraphicsContext
 import javafx.scene.paint.Color
 
@@ -12,7 +14,7 @@ object GridCanvas {
 }
 
 
-class GridCanvas extends ResizableCanvas {
+class GridCanvas extends BaseChartCanvas {
   import GridCanvas._
 
   protected def drawGridlines(gc: GraphicsContext, scale: ChartParameters,

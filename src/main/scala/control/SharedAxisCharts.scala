@@ -1,8 +1,6 @@
 package bigvis
 package control
 
-import btree.{BTree, FloatAggregator, StringAggregator}
-
 import scalafx.Includes._
 import scalafx.beans.property.{DoubleProperty, LongProperty}
 import scalafx.geometry.Orientation
@@ -17,7 +15,7 @@ import scala.collection.mutable
 /**
  * VBox containing several stacked charts, with glue to make their X axes appear synchronized
  */
-class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends SplitPane {
+class SharedAxisCharts(val dataItems: mutable.HashMap[String, BTreeSeries]) extends SplitPane {
   orientation = Orientation.Vertical
 
   val xLower: LongProperty = LongProperty(0)
@@ -26,8 +24,8 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends Sp
 
 
   // Returns children as charts
-  protected def charts: Seq[BTreeChart] = this.items.collect {
-    case chart: BTreeChart => chart
+  protected def charts: Seq[BaseBTreeChart] = this.items.collect {
+    case chart: BaseBTreeChart => chart
   }.toSeq
 
   this.onDragOver = (event: DragEvent) => {
@@ -42,34 +40,17 @@ class SharedAxisCharts(dataItems: mutable.HashMap[String, BTreeData]) extends Sp
   this.onDragDropped = (event: DragEvent) => {
     event.dragboard.content.get(DataTreeView.BTreeDataType) match {
       case Some(str: String) => dataItems.get(str).foreach { bTreeData =>
-        bTreeData.tree match {
-          // TODO figure out a clean way around type erasure
-          case tree: BTree[FloatAggregator] @unchecked if tree.aggregatorType == FloatAggregator.aggregator =>
-            addChart(bTreeData.name, tree)
-          case tree: BTree[StringAggregator] @unchecked if tree.aggregatorType == StringAggregator.aggregator =>
-            ???
-          case tree => throw new IllegalArgumentException(s"bad tree $tree of type ${tree.getClass.getName}")
+        if (xLower.value == xUpper.value) {
+          xLower.value = bTreeData.tree.minTime
+          xUpper.value = bTreeData.tree.maxTime
         }
+        val chart = BTreeChart.fromTree(this, bTreeData)
+        setVgrow(chart, Priority.Always)
+        this.items.add(chart)
       }
       case _ =>  // shouldn't get here
     }
     event.consume()
-  }
-
-  // Adds a chart to the end of this stack of charts, and sets the axis properties to make it do the right thing
-  def addChart(name: String, tree: BTree[FloatAggregator]): Unit = {
-    if (xLower.value == xUpper.value) {
-      xLower.value = tree.minTime
-      xUpper.value = tree.maxTime
-    }
-
-    val chart = new BTreeChart(
-      this,
-      Seq(ChartDefinition(name, tree, ChartTools.createColors(1).head)),
-      1000
-    )
-    setVgrow(chart, Priority.Always)
-    this.items.add(chart)
   }
 
   this.onScroll = (event: ScrollEvent) => {

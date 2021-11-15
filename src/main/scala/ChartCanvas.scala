@@ -1,6 +1,7 @@
 package bigvis
 
 import btree._
+import control.{BaseChartCanvas, ChartMetadata, ChartParameters, FloatBTreeSeries}
 
 import javafx.scene.canvas.GraphicsContext
 import javafx.scene.paint.Color
@@ -11,7 +12,7 @@ object ChartCanvas {
 }
 
 
-class ChartCanvas extends ResizableCanvas {
+class ChartCanvas extends BaseChartCanvas {
   import ChartCanvas._
 
   // Actual rendering functions
@@ -79,7 +80,7 @@ class ChartCanvas extends ResizableCanvas {
   }
 
   def draw(scale: ChartParameters,
-           charts: Seq[(ChartDefinition, ChartMetadata, Seq[Seq[BTreeData[FloatAggregator]]])]): Unit = {
+           charts: Seq[(FloatBTreeSeries, ChartMetadata, Seq[Seq[BTreeData[FloatAggregator]]])]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)

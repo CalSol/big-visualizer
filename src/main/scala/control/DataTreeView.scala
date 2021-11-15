@@ -1,5 +1,5 @@
 package bigvis.control
-import bigvis.{BTreeData, CsvLoader}
+import bigvis.{BTreeSeries, CsvLoader}
 import scalafx.Includes._
 import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
@@ -26,7 +26,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
   })
 
   // All data items available, used for drag-and-drop
-  val dataItems = mutable.HashMap[String, BTreeData]()
+  val dataItems = mutable.HashMap[String, BTreeSeries]()
 
   columns ++= Seq(
     new TreeTableColumn[DataTreeItem, String] {
@@ -86,7 +86,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
     row.onDragDetected = (event: MouseEvent) => {
       val draggedItem = row.treeItem.getValue.getValue
       draggedItem.payload match {
-        case bTreeData: BTreeData =>
+        case bTreeData: BTreeSeries =>
           val dragBoard = row.startDragAndDrop(TransferMode.Copy)
           val content = new ClipboardContent()
           content.put(DataTreeView.BTreeDataType, bTreeData.name)

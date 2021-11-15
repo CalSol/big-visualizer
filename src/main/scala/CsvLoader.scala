@@ -111,7 +111,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
 }
 
 
-case class BTreeData(name: String, tree: UntypedBTree)
+case class BTreeSeries(name: String, tree: UntypedBTree)
 
 
 object CsvLoader {
@@ -120,7 +120,7 @@ object CsvLoader {
 
   val ROWS_BETWEEN_UPDATES = 65536
 
-  def load(path: Path)(status: String => Unit): Seq[BTreeData] = {
+  def load(path: Path)(status: String => Unit): Seq[BTreeSeries] = {
     status(s"determining types")
     val fileLength = path.toFile.length().toFloat
 
@@ -192,7 +192,7 @@ object CsvLoader {
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
     dataBuilders.toSeq.map { dataBuilder =>
       status(s"inserting: ${dataBuilder.name}")
-      BTreeData(dataBuilder.name, dataBuilder.makeTree)
+      BTreeSeries(dataBuilder.name, dataBuilder.makeTree)
     }
   }
 }
