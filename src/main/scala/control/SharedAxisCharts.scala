@@ -22,12 +22,6 @@ class SharedAxisCharts(val dataItems: mutable.HashMap[String, BTreeSeries]) exte
   val xUpper: LongProperty = LongProperty(0)
   val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
 
-
-  // Returns children as charts
-  protected def charts: Seq[BaseBTreeChart] = this.items.collect {
-    case chart: BaseBTreeChart => chart
-  }.toSeq
-
   this.onDragOver = (event: DragEvent) => {
     event.dragboard.content.get(DataTreeView.BTreeDataType) match {
       case Some(str: String) =>

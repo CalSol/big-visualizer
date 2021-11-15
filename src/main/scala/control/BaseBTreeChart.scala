@@ -21,10 +21,8 @@ object ChartTools {
   // TODO also mess with saturation and value?
   protected val goldenRatioConjugate = 0.618033988749895
 
-  def createColors(count: Int): Seq[Color] = {
-    (0 until count).map { i =>
-      Color.hsb((goldenRatioConjugate * 360 * i) % 360, 0.75, 0.75, 0.5)
-    }
+  def colorForIndex(index: Int): Color = {
+    Color.hsb((goldenRatioConjugate * 360 * index) % 360, 0.75, 0.75, 0.5)
   }
 }
 

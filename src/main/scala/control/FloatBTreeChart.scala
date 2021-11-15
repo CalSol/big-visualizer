@@ -46,7 +46,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
 
     datasets.append(FloatBTreeSeries(
       dataset.name, tree,
-      Color.rgb(127, 127, 127, 0.5)
+      ChartTools.colorForIndex(datasets.length)
     ))
   }
 
