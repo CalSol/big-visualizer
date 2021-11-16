@@ -1,7 +1,7 @@
 package bigvis
 package control
 
-import javafx.event.{Event, EventDispatchChain, EventDispatcher}
+import javafx.event.{Event, EventDispatchChain}
 import javafx.scene.paint.Color
 import scalafx.Includes._
 import scalafx.scene.input.{DragEvent, TransferMode}
