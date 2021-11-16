@@ -78,60 +78,18 @@ object BTreeChart {  // rendering properties
 
 
 // Base BTreeChart class that provides time axis functionality.
-abstract class BaseBTreeChart(parent: SharedAxisCharts) extends StackPane {
+abstract class BaseBTreeChart(val container: SharedAxisCharts) extends StackPane {
   minWidth = 0  // allow resizing down
   minHeight = 0  // allow resizing down
-
-
-  protected val dragRect = Rectangle(0, 20, width.value, height.value - 40)
-  dragRect.setFill(Color.TRANSPARENT)
-  Seq(width, height).foreach { observable =>
-    observable.onChange{
-      dragRect.setWidth(width.value)
-      dragRect.setHeight(height.value - 40)
-    }
-  }
-
-  dragRect.onDragOver = (event: DragEvent) => {
-    event.dragboard.content.get(DataTreeView.BTreeDataType) match {
-      case Some(str: String) =>
-        event.acceptTransferModes(TransferMode.Copy)
-        dragRect.setFill(Color.BLUE.deriveColor(0, 1, 1, 0.5))
-      case _ =>
-        dragRect.setFill(Color.RED.deriveColor(0, 1, 1, 0.5))
-    }
-    event.consume()
-  }
-  dragRect.onDragExited = (event: DragEvent) => {
-    dragRect.setFill(Color.TRANSPARENT)
-    event.consume()
-  }
-  dragRect.onDragDropped = (event: DragEvent) => {
-    event.dragboard.content.get(DataTreeView.BTreeDataType) match {
-      case Some(str: String) => parent.dataItems.get(str).foreach { bTreeData =>
-        addDataset(bTreeData)
-        dragRect.setFill(Color.TRANSPARENT)
-      }
-      case _ => // shouldn't get here
-    }
-    event.consume()
-  }
 
   // Adds a dataset, returning whether it was successfully added
   def addDataset(series: BTreeSeries): Boolean
 
-  val chartsPane = new StackPane {
-    minWidth = 0
-    minHeight = 0
-  }
-  children.append(chartsPane)
-  children.append(dragRect)  // must be on top
-
   val gridCanvas = new GridCanvas()
-  chartsPane.children.append(gridCanvas)
+  children.append(gridCanvas)
   gridCanvas.widthProperty().bind(width)
   gridCanvas.heightProperty().bind(height)
-  Seq(width, height, parent.xLower, parent.xUpper).foreach { observable =>
+  Seq(width, height, container.xLower, container.xUpper).foreach { observable =>
     observable.onChange(redrawGrid())
   }
 
@@ -139,7 +97,7 @@ abstract class BaseBTreeChart(parent: SharedAxisCharts) extends StackPane {
 
   protected def redrawGrid(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
-      parent.xLower.value, parent.xUpper.value, 0, 0, timeZone)
+      container.xLower.value, container.xUpper.value, 0, 0, timeZone)
     gridCanvas.draw(scale)
   }
 }

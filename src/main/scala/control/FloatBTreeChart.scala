@@ -114,7 +114,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   }
 
   val chartCanvas = new ChartCanvas()
-  chartsPane.children.append(chartCanvas)
+  children.append(chartCanvas)
   chartCanvas.widthProperty().bind(width)
   chartCanvas.heightProperty().bind(height)
   Seq(width, height, parent.xLower, parent.xUpper, yLower, yUpper, datasets).foreach { observable =>
@@ -122,7 +122,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   }
 
   val cursorCanvas = new CursorCanvas()
-  chartsPane.children.append(cursorCanvas)
+  children.append(cursorCanvas)
   cursorCanvas.widthProperty().bind(width)
   cursorCanvas.heightProperty().bind(height)
   Seq(width, height, parent.xLower, parent.xUpper, yLower, yUpper, parent.cursorXPos, datasets).foreach { observable =>
