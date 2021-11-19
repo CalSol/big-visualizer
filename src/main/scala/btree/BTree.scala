@@ -2,6 +2,7 @@ package bigvis
 package btree
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object BTree {
   type TimestampType = Long
@@ -18,14 +19,26 @@ abstract class BTreeAggregator {
   def fromNodes(data: Seq[((BTree.TimestampType, BTree.TimestampType), NodeType)]): NodeType
 }
 
+
+/** Non-type-parameterized base class for a B-tree
+ */
+sealed trait UntypedBTree {
+  def aggregatorType: BTreeAggregator
+
+  def length: Long
+
+  def minTime: BTree.TimestampType
+  def maxTime: BTree.TimestampType
+}
+
+
 /** A mutable B-Tree for timeseries, where data points have some kind of type-paramterized data
  * and an integer timestamp.
  * See https://en.wikipedia.org/wiki/B-tree
  *
  * The nodeSize parameter is the maximum number of children it has ("order" / m in the Wikipedia page).
  */
-class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
-                                               val nodeSize: Int) {
+class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val nodeSize: Int) extends UntypedBTree {
   // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): AggregatorType#NodeType =
     aggregator.fromLeaves(data.asInstanceOf[Seq[(BTree.TimestampType, this.aggregator.LeafType)]])
@@ -34,12 +47,14 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
     aggregator.fromNodes(data.asInstanceOf[Seq[((BTree.TimestampType, BTree.TimestampType), this.aggregator.NodeType)]])
 
   protected var root: BTreeNode[AggregatorType] = new BTreeLeafNode(this)
+  protected var internalLength: Long = 0
 
   // Adds the data (as points of (timestamp, data), Data must be ordered, but only within itself
   // (it can overlap with existing points in the tree)
   // Data must not be empty.
   def appendAll(data: IterableOnce[(BTree.TimestampType, AggregatorType#LeafType)]): Unit = {
     var remainingData = data.iterator.toSeq
+    internalLength += remainingData.length
     while (remainingData.nonEmpty) {
       remainingData = root.appendAll(remainingData)
       if (remainingData.nonEmpty) {  // split node and insert new root
@@ -103,6 +118,9 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType,
 
   def minTime: BTree.TimestampType = root.minTime
   def maxTime: BTree.TimestampType = root.maxTime
+
+  override def aggregatorType = aggregator
+  override def length = internalLength
 
   def validate(): Boolean = root.validate()
 }

@@ -1,6 +1,7 @@
 package bigvis
 
 import btree.{BTreeAggregate, BTreeData, BTreeLeaf, FloatAggregator}
+import control._
 
 import scala.collection.mutable
 
@@ -88,11 +89,11 @@ object CursorCanvas {
 }
 
 
-class CursorCanvas extends ResizableCanvas {
+class CursorCanvas extends BaseChartCanvas {
   import CursorCanvas._
 
   def draw(scale: ChartParameters, cursorPos: Double,
-           datasetData: Seq[(ChartDefinition, Option[BTreeData[FloatAggregator]])]): Unit = {
+           datasetData: Seq[(FloatBTreeSeries, Option[BTreeData[FloatAggregator]])]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
