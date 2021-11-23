@@ -42,7 +42,7 @@ object RenderHelper {
 
 case class ChartDefinition(
     name: String,
-    data: BTree[FloatAggregator],
+    data: BTree[StringAggregator],
     color: Color
 )
 
@@ -121,19 +121,19 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   val xLower: LongProperty = LongProperty(datasets.map(_.data.minTime).min)
   val xUpper: LongProperty = LongProperty(datasets.map(_.data.maxTime).max)
 
-  val yLower: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.min).min)
-  val yUpper: DoubleProperty = DoubleProperty(datasets.map(_.data.rootData.max).max)
+  val yLower: DoubleProperty = DoubleProperty(0)
+  val yUpper: DoubleProperty = DoubleProperty(0)
 
   val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
 
   // Processed data displayed by the current window
-  val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
+  val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[StringAggregator]]]] = mutable.HashMap()
 
 
   // Given a set of parameters (defining the window and resolution) and a data series (BTree),
   // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
-  def getData(scale: ChartParameters, series: BTree[FloatAggregator]):
-      (IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]], ChartMetadata) = {
+  def getData(scale: ChartParameters, series: BTree[StringAggregator]):
+      (IndexedSeq[IndexedSeq[BTreeData[StringAggregator]]], ChartMetadata) = {
     val minResolution = (scale.xRange.toDouble / scale.width * PX_PER_POINT).toLong
 
     val (nodeTime, nodes) = timeExec {
@@ -142,11 +142,11 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
     // filter nodes into break-able sections
     val (sectionTime, rawSections) = timeExec {
-      ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
+      ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[StringAggregator]) => {
         elem match {
-          case node: BTreeAggregate[FloatAggregator] =>
+          case node: BTreeAggregate[StringAggregator] =>
             (node.maxTime, node.minTime > prevTime + timeBreak)
-          case node: BTreeLeaf[FloatAggregator] => // TODO return individual data points
+          case node: BTreeLeaf[StringAggregator] => // TODO return individual data points
             (node.point._1, node.point._1 > prevTime + timeBreak)
         }
       })
@@ -154,7 +154,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
 
     val (resampleTime, sections) = timeExec {  // TODO create IndexedSeqs earlier?
       rawSections.map { rawSection =>
-        BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution).toIndexedSeq
+        BTreeResampler(StringAggregator.aggregator, rawSection, minResolution).toIndexedSeq
       }.toIndexedSeq
     }
 
@@ -172,7 +172,7 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
   gridCanvas.widthProperty().bind(widthProperty())
   gridCanvas.heightProperty().bind(heightProperty())
 
-  val chartCanvas = new ChartCanvas()
+  val chartCanvas = new StringChartCanvas()
   getChildren.add(chartCanvas)
   chartCanvas.widthProperty().bind(widthProperty())
   chartCanvas.heightProperty().bind(heightProperty())
@@ -239,16 +239,16 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
     val cursorTime = scale.xPosToVal(cursorPos)
 
     // TODO get rod of the null
-    val searchPoint: BTreeData[FloatAggregator] =
-      new BTreeResampledNode[FloatAggregator](cursorTime, cursorTime, null)
+    val searchPoint: BTreeData[StringAggregator] =
+      new BTreeResampledNode[StringAggregator](cursorTime, cursorTime, null)
 
-    def dataToStartTime(data: BTreeData[FloatAggregator]): Long = data match {
-      case leaf: BTreeLeaf[FloatAggregator] => leaf.point._1
-      case aggr: BTreeAggregate[FloatAggregator] => aggr.minTime
+    def dataToStartTime(data: BTreeData[StringAggregator]): Long = data match {
+      case leaf: BTreeLeaf[StringAggregator] => leaf.point._1
+      case aggr: BTreeAggregate[StringAggregator] => aggr.minTime
     }
-    def dataToEndTime(data: BTreeData[FloatAggregator]): Long = data match {
-      case leaf: BTreeLeaf[FloatAggregator] => leaf.point._1
-      case aggr: BTreeAggregate[FloatAggregator] => aggr.maxTime
+    def dataToEndTime(data: BTreeData[StringAggregator]): Long = data match {
+      case leaf: BTreeLeaf[StringAggregator] => leaf.point._1
+      case aggr: BTreeAggregate[StringAggregator] => aggr.maxTime
     }
 
     val datasetValues = datasets.map { dataset =>
@@ -280,6 +280,5 @@ class BTreeChart(datasets: Seq[ChartDefinition], timeBreak: Long) extends StackP
       // TODO discard option None case here
       (dataset, data)
     }
-    cursorCanvas.draw(scale, cursorPos, datasetValues)
   }
 }

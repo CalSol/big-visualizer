@@ -1,7 +1,7 @@
 package bigvis
 
 import btree.BTree.TimestampType
-import btree.{BTree, FloatAggregator}
+import btree.{BTree, FloatAggregator, StringAggregator}
 
 import com.github.tototoshi.csv.CSVReader
 import javafx.scene.input.{MouseEvent, ScrollEvent}
@@ -138,13 +138,12 @@ object Main extends JFXApp {
 
   println("Open file")
   // TODO open all 28
-  val cellTrees = (0 until 4).map{ _ => new BTree(FloatAggregator.aggregator, 16) }
+  val cellTrees = (0 until 1).map{ _ => new BTree(StringAggregator.aggregator, 16) }
 
   {
-    val cellArrs = cellTrees.map{ _ => new mutable.ArrayBuffer[(TimestampType, Float)]() }
+    val cellArrs = cellTrees.map{ _ => new mutable.ArrayBuffer[(TimestampType, String)]() }
 
-//    val reader = CSVReader.open(new File("../big-analysis/Fsgp21Decode/bms.pack.voltage.csv"))
-    val reader = CSVReader.open(new File("bms.cell.voltage.csv"))
+    val reader = CSVReader.open(new File("bms.warning.csv"))
     println("Map data")
     val batteriesIterator = reader.iterator
     batteriesIterator.next()  // skip header row
@@ -152,12 +151,7 @@ object Main extends JFXApp {
        fields(0).toDoubleOption match {
          case Some(time) =>
            val timeLong = (time * 1000).toLong
-           cellArrs.zipWithIndex.map { case (cellArr, i) =>
-             fields(2 + i).toFloatOption match {
-               case Some(field) => cellArr.append((timeLong, field))
-               case None =>
-             }
-           }
+           cellArrs.zipWithIndex.map { case (cellArr, i) => cellArr.append((timeLong, fields(1 + i)))}
          case None =>
       }
     }
