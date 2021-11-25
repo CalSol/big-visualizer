@@ -38,6 +38,21 @@ class GridCanvas extends ResizableCanvas {
     gc.restore()
   }
 
+
+  protected def drawValueLines(gc: GraphicsContext, scale: ChartParameters): Unit = {
+    gc.save()
+    gc.setStroke(gc.getStroke.asInstanceOf[Color].deriveColor(0, 1, 1, GRIDLINE_ALPHA))
+    gc.setLineWidth(CONTEXT_GRIDLINE_WIDTH)
+    val v_interval = List.range(0,scale.height,64)
+    v_interval.foreach{ value =>
+      gc.strokeLine(0,value,scale.width,value)
+//      println(s"DEBUG: value: $value")
+      RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND, scale.yPosToVal(value).toString,
+        20, value)
+    }
+    gc.restore()
+  }
+
   protected def drawRulers(gc: GraphicsContext, scale: ChartParameters,
                            priorContextTime: ZonedDateTime,
                            tickTimes: Seq[ZonedDateTime], contextTimes: Seq[ZonedDateTime]): Unit = {
@@ -86,6 +101,6 @@ class GridCanvas extends ResizableCanvas {
 
     drawGridlines(gc, scale, tickTimes, contextTimes)
     drawRulers(gc, scale, priorContextTime, tickTimes, contextTimes)
-
+    drawValueLines(gc,scale)
   }
 }

@@ -87,6 +87,7 @@ case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin
   def xValToPos(value: Long): Double = (value - xMin) * xScale
   def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xMin
   def yValToPos(value: Double): Double = (yMax - value) * yScale
+  def yPosToVal(pos: Double): Double = yMax - (pos / yScale)
 
   // TODO is this the right place for these functions to live?
   def timestampFromDateTime(dateTime: ZonedDateTime): Long = {
