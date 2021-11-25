@@ -47,7 +47,7 @@ class GridCanvas extends ResizableCanvas {
     v_interval.foreach{ value =>
       gc.strokeLine(0,value,scale.width,value)
 //      println(s"DEBUG: value: $value")
-      RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND, scale.yPosToVal(value).toString,
+      RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND, ((scale.yPosToVal(value) * 100).round / 100.toDouble).toString,
         20, value)
     }
     gc.restore()
