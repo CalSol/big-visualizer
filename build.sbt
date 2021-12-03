@@ -15,8 +15,29 @@ libraryDependencies ++= Seq(
   "de.siegmar" % "fastcsv" % "2.1.0",
 
   "org.scalatest" %% "scalatest" % "3.2.0" % "test",
-)
 
+  "me.shadaj" %% "scalapy-core" % "0.5.0",
+)
+//adds Python native libraries and configures SBT to run in a new JVM instance (for ScalaPy)
+fork := true
+
+import scala.sys.process._
+lazy val pythonLdFlags = {
+  val withoutEmbed = "python3-config --ldflags".!!
+  if (withoutEmbed.contains("-lpython")) {
+    withoutEmbed.split(' ').map(_.trim).filter(_.nonEmpty).toSeq
+  } else {
+    val withEmbed = "python3-config --ldflags --embed".!!
+    withEmbed.split(' ').map(_.trim).filter(_.nonEmpty).toSeq
+  }
+}
+
+lazy val pythonLibsDir = {
+  pythonLdFlags.find(_.startsWith("-L")).get.drop("-L".length)
+}
+
+javaOptions += s"-Djna.library.path=$pythonLibsDir"
+javaOptions in Test += s"-Djna.library.path=$pythonLibsDir"
 // JavaFX binary detection, from https://github.com/scalafx/ScalaFX-Tutorials/blob/master/hello-sbt/build.sbt
 val javafxModules = Seq("base", "controls", "fxml", "graphics", "media", "swing", "web")
 val osName = System.getProperty("os.name") match {
