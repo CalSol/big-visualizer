@@ -5,7 +5,8 @@ import btree._
 import de.siegmar.fastcsv.reader.CsvReader
 
 import java.nio.file.Path
-import scala.collection.mutable
+import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.{IteratorHasAsScala, ListHasAsScala}
 import scala.util.Try
 
@@ -121,26 +122,30 @@ object CsvLoader {
   val ROWS_BETWEEN_UPDATES = 65536
 
   def load(path: Path)(status: String => Unit): Seq[BTreeSeries] = {
-    status(s"determining types")
     val fileLength = path.toFile.length().toFloat
 
-    val csv = CsvReader.builder().build(path)
-    val rowIter = csv.iterator().asScala
-    // implied that first is the timestamp
-    val headers = rowIter.take(1).toSeq.head.getFields.asScala.drop(1)
-    val firstRows = csv.iterator().asScala.take(SCAN_ROWS).toSeq
-    val firstCols = firstRows.map { row =>
-      row.getFields.asScala.drop(1)
-    }.transpose
-
-    val dataTypes = firstCols.map { colData =>
-      colData.filter(_.nonEmpty) match {
-        case seq if seq.nonEmpty && seq.forall(str => Try(str.toDouble).isSuccess) => Some(classOf[Double])
-        case seq if seq.nonEmpty => Some(classOf[String])
-        case Seq() => None
+    val dataTypesPairs = {
+      status(s"determining types")
+      val csv = CsvReader.builder().build(path)
+      val rowIter = csv.iterator().asScala
+      // implied that first is the timestamp
+      val headers = rowIter.take(1).toSeq.head.getFields.asScala.drop(1)
+      val firstRows = rowIter.take(SCAN_ROWS).toSeq
+      val firstCols = firstRows.map { row =>
+        row.getFields.asScala.drop(1)
+      }.transpose
+      val dataTypes = firstCols.map { colData =>
+        colData.filter(_.nonEmpty) match {
+          case seq if seq.nonEmpty && seq.forall(str => Try(str.toDouble).isSuccess) => Some(classOf[Double])
+          case seq if seq.nonEmpty => Some(classOf[String])
+          case Seq() => None
+        }
       }
+      (headers zip dataTypes).toSeq
     }
-    val dataTypesMap = (headers zip dataTypes).toMap
+    val dataTypesMap = dataTypesPairs.toMap
+
+    System.gc()
 
     // Infer array types by looking for things ending with numbers and checking for a common prefix
 //    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
@@ -159,7 +164,7 @@ object CsvLoader {
     }
 
     // Build up the parsers, in the same order as the data they will parse (except the first time element)
-    val parsers = (headers zip dataTypes) map {
+    val parsers = dataTypesPairs map {
       case (header, dataType) if doubleArraysMap.contains(header) =>
         doubleArraysMap(header)
       case (header, Some(dataType)) if dataType == classOf[Double] =>
@@ -171,9 +176,13 @@ object CsvLoader {
     }
 
     // Actually read the CSVs
+    status(s"reading")
     var count: Long = 0
     val loadTime = timeExec {
-      (firstRows ++ rowIter).foreach { rawRow =>
+      val csv = CsvReader.builder().build(path)
+      val rowIter = csv.iterator().asScala
+      rowIter.take(1).toSeq  // drop header row
+      rowIter.foreach { rawRow =>
         if (count % ROWS_BETWEEN_UPDATES == 0) {
           status(s"reading: ${(rawRow.getStartingOffset / fileLength * 100).toInt}%")
         }
@@ -183,11 +192,12 @@ object CsvLoader {
         (row.tail zip parsers).foreach { case (cell, parser) =>
           parser.parseCell(time, cell)
         }
-        rawRow.getStartingOffset
 
         count += 1
       }
     }
+
+    System.gc()
 
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
     dataBuilders.toSeq.map { dataBuilder =>

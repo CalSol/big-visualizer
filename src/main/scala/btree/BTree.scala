@@ -182,15 +182,20 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
     // Insert data until full
     // When full, split the node in the parent, recursively as needed, and delegate continued data adding
     require(data.nonEmpty)  // empty appends handled at BTree level
-    require(data.head._1 >= internalMaxTime, "TODO: support insertions not at end")  // I'm a lazy duck
+    if (data.head._1 <= internalMaxTime) {  // TODO this should be an error?
+      System.err.println(s"discarding points ${data.size} going backward in time")
+    }
 
     var currTime = internalMaxTime
     var remainingData = data
     while (leaves.length < root.nodeSize && remainingData.nonEmpty) {
       val head = remainingData.head
-      require(head._1 >= currTime)
-      currTime = head._1
-      leaves.append(head)
+      if (head._1 <= currTime) {  // TODO this should be an error? and support interleaved inserts?
+        System.err.println(s"discarding point $head going backward in time")
+      } else {
+        currTime = head._1
+        leaves.append(head)
+      }
       remainingData = remainingData.tail
     }
 

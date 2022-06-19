@@ -69,6 +69,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
           } catch {
             case e: Exception =>
               statusTreeItem.value.value.dataProp.value = e.toString
+              e.printStackTrace()
               Thread.sleep(5000)
           } finally {
             this.getRoot.getChildren.remove(statusTreeItem)

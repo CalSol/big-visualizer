@@ -27,10 +27,6 @@ val osName = System.getProperty("os.name") match {
 }
 libraryDependencies ++= javafxModules.map(m => "org.openjfx" % s"javafx-$m" % "16" classifier osName)
 
-// Need to increase JVM memory sizes because of the bigness of the data
-run / javaOptions ++= Seq(
-  "-Xms1G", "-Xmx8G")
-
 // Force hardware rendering
 // TODO does this actually do anything?
 run / javaOptions += "-Dsun.java2d.opengl=true"
