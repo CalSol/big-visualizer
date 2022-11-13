@@ -1,8 +1,11 @@
 package bigvis
 package control
 
+import scalafx.Includes._
 import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableView}
+
+import scala.collection.mutable
 
 
 // Singleton
@@ -20,6 +23,7 @@ class PerfTreeItem(name: String) {
   val nodeTimeProp = StringProperty("")
   val sectionTimeProp = StringProperty("")
   val resampleTimeProp = StringProperty("")
+  val renderTimeProp = StringProperty("")
 }
 
 
@@ -30,8 +34,34 @@ class PerfTreeView extends TreeTableView[PerfTreeItem]() {
   })
   this.setShowRoot(false)
 
-  require(PerfTreeView.instance.isEmpty, "PerfTreeView must be singleton")
-  PerfTreeView.instance = Some(this)  // at this point it's mutable
+  // note: multiple instances of a data series not supported
+  val items = mutable.HashMap[String, PerfTreeItem]()
+
+  def addItem(name: String): Unit = {
+    if (items.contains(name)) {  // duplicates ignored, it'll resolve to the prior one
+      return
+    }
+    val newItem = new PerfTreeItem(name)
+    this.getRoot.getChildren.append(new TreeItem(newItem))
+    items.put(name, newItem)
+  }
+
+  def updateItemPerf(name: String, nodeCount: Long, resampleNodeCount: Long,
+                     nodeTime: Double, sectionTime: Double, resampleTime: Double): Unit = {
+    items.get(name).foreach { item =>
+      item.nodeCountProp.setValue(nodeCount.toString)
+      item.resampleNodeCountProp.setValue(resampleNodeCount.toString)
+      item.nodeTimeProp.setValue(f"${nodeTime * 1000}%.1f")
+      item.sectionTimeProp.setValue(f"${sectionTime * 1000}%.1f")
+      item.resampleTimeProp.setValue(f"${resampleTime * 1000}%.1f")
+    }
+  }
+
+  def updateItemRender(name: String, renderTime: Double): Unit = {
+    items.get(name).foreach { item =>
+      item.renderTimeProp.setValue(f"${renderTime * 1000}%.1f")
+    }
+  }
 
   columns ++= Seq(
     new TreeTableColumn[PerfTreeItem, String] {
@@ -58,5 +88,12 @@ class PerfTreeView extends TreeTableView[PerfTreeItem]() {
       text = "Resample Time"
       cellValueFactory = { _.value.value.value.resampleTimeProp }
     },
+    new TreeTableColumn[PerfTreeItem, String] {
+      text = "Render Time"
+      cellValueFactory = { _.value.value.value.renderTimeProp }
+    },
   )
+
+  require(PerfTreeView.instance.isEmpty, "PerfTreeView must be singleton")
+  PerfTreeView.instance = Some(this) // at this point it's mutable
 }

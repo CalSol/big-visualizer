@@ -1,7 +1,7 @@
 package bigvis
 
 import btree._
-import control.{BaseChartCanvas, ChartMetadata, ChartParameters, FloatBTreeSeries}
+import control.{BaseChartCanvas, ChartMetadata, ChartParameters, FloatBTreeSeries, PerfTreeView}
 
 import javafx.scene.canvas.GraphicsContext
 import javafx.scene.paint.Color
@@ -15,11 +15,10 @@ object ChartCanvas {
 class ChartCanvas extends BaseChartCanvas {
   import ChartCanvas._
 
-  // Actual rendering functions
+  // Actual rendering functions, returns rendering time
   protected def drawChart(gc: GraphicsContext, scale: ChartParameters,
                           sections: Seq[Seq[BTreeData[FloatAggregator]]], chartColor: Color,
-                          chartMetadata: ChartMetadata,
-                          offset: Int): Unit = {
+                          offset: Int): Double = {
     gc.save()
     gc.setFill(chartColor)
     gc.setStroke(chartColor)
@@ -66,21 +65,13 @@ class ChartCanvas extends BaseChartCanvas {
       }
     }
 
-    val totalTime = chartMetadata.nodeTime + chartMetadata.sectionTime + chartMetadata.resampleTime + renderTime
-    // render debugging information
-    gc.fillText(f"${totalTime * 1000}%.1f ms total    " +
-        f"${chartMetadata.nodeTime * 1000}%.1f ms nodes, " +
-        f"${chartMetadata.sectionTime * 1000}%.1f ms sections, " +
-        f"${chartMetadata.resampleTime * 1000}%.1f ms resample, " +
-        f"${renderTime * 1000}%.1f ms render    " +
-        f"${chartMetadata.nodes} -> ${chartMetadata.resampledNodes} nodes",
-      0, 20 + (offset * 10))
-
     gc.restore()
+
+    renderTime
   }
 
   def draw(scale: ChartParameters,
-           charts: Seq[(FloatBTreeSeries, ChartMetadata, Seq[Seq[BTreeData[FloatAggregator]]])]): Unit = {
+           charts: Seq[(FloatBTreeSeries, Seq[Seq[BTreeData[FloatAggregator]]])]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -89,12 +80,9 @@ class ChartCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.yMin}", 0, scale.height)
     gc.fillText(s"${scale.yMax}", 0, 10)
 
-    val renderTime = timeExec {
-      charts.zipWithIndex.foreach { case ((dataset, metadata, sections), i) =>
-        drawChart(gc, scale, sections, dataset.color, metadata, i)
-      }
+    charts.zipWithIndex.foreach { case ((dataset, sections), i) =>
+      val renderTime = drawChart(gc, scale, sections, dataset.color, i)
+      PerfTreeView().foreach(_.updateItemRender(dataset.name, renderTime))
     }
-    gc.fillText(f" => ${renderTime * 1000}%.1f ms total render",
-      0, 20 + (charts.length * 10) + 10)
   }
 }

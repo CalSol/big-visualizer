@@ -37,6 +37,7 @@ class DraggableBTreeChartWrapper(chart: BaseBTreeChart) extends StackPane {
     event.dragboard.content.get(DataTreeView.BTreeDataType) match {
       case Some(str: String) => chart.container.dataItems.get(str).foreach { bTreeData =>
         chart.addDataset(bTreeData)
+        PerfTreeView().foreach(_.addItem(bTreeData.name))
         dragRect.setFill(Color.TRANSPARENT)
       }
       case _ => // shouldn't get here

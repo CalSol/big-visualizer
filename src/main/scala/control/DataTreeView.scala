@@ -1,4 +1,6 @@
-package bigvis.control
+package bigvis
+package control
+
 import bigvis.{BTreeSeries, CsvLoader}
 import scalafx.Includes._
 import scalafx.beans.property.StringProperty
