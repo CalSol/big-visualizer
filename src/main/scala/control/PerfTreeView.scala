@@ -1,7 +1,7 @@
 package bigvis
 package control
 
-import scalafx.beans.property.{FloatProperty, IntegerProperty, StringProperty}
+import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableView}
 
 
@@ -16,10 +16,11 @@ class PerfTreeItem(name: String) {
 
 
 class PerfTreeView extends TreeTableView[PerfTreeItem]() {
-  this.setRoot(new TreeItem(new PerfTreeItem("root", "", None)) {
+  this.setRoot(new TreeItem(new PerfTreeItem("root")) {
     expanded = true
     children = Seq()
   })
+  this.setShowRoot(false)
 
   columns ++= Seq(
     new TreeTableColumn[PerfTreeItem, String] {

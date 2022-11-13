@@ -24,6 +24,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
     expanded = true
     children = Seq()
   })
+  this.setShowRoot(false)
 
   // All data items available, used for drag-and-drop
   val dataItems = mutable.HashMap[String, BTreeSeries]()

@@ -1,6 +1,6 @@
 package bigvis
 
-import control.{DataTreeView, SharedAxisCharts}
+import control.{DataTreeView, PerfTreeView, SharedAxisCharts}
 
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -8,6 +8,7 @@ import scalafx.scene.Scene
 import scalafx.scene.control.SplitPane
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, VBox}
+import scalafx.stage.Stage
 
 
 object Main extends JFXApp {
@@ -40,4 +41,13 @@ object Main extends JFXApp {
       root = splitPane
     }
   }
+
+  val perfTree = new PerfTreeView()
+  val perfStage = new Stage() {
+    title = "Performance"
+    scene = new Scene {
+      root = perfTree
+    }
+  }
+  perfStage.show()
 }
