@@ -107,7 +107,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
 
   override def makeTree: BTree[BTreeAggregator] = {
     // TODO implement me
-    new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
   }
 }
 
@@ -124,34 +124,30 @@ object CsvLoader {
   def load(path: Path)(status: String => Unit): Seq[BTreeSeries] = {
     val fileLength = path.toFile.length().toFloat
 
-    val dataTypesPairs = {
-      status(s"determining types")
-      val csv = CsvReader.builder().build(path)
-      val rowIter = csv.iterator().asScala
-      // implied that first is the timestamp
-      val headers = rowIter.take(1).toSeq.head.getFields.asScala.drop(1)
-      val firstRows = rowIter.take(SCAN_ROWS).toSeq
-      val firstCols = firstRows.map { row =>
-        row.getFields.asScala.drop(1)
-      }.transpose
-      val dataTypes = firstCols.map { colData =>
-        colData.filter(_.nonEmpty) match {
-          case seq if seq.nonEmpty && seq.forall(str => Try(str.toDouble).isSuccess) => Some(classOf[Double])
-          case seq if seq.nonEmpty => Some(classOf[String])
-          case Seq() => None
-        }
+    status(s"determining types")
+    val csv = CsvReader.builder().build(path)
+    val rowIter = csv.iterator().asScala
+    // implied that first is the timestamp
+    val headers = rowIter.take(1).toSeq.head.getFields.asScala.toSeq.drop(1)
+    val firstRows = rowIter.take(SCAN_ROWS).toSeq
+    val firstCols = firstRows.map { row =>
+      row.getFields.asScala.drop(1)
+    }.transpose
+    val dataTypes = firstCols.map { colData =>
+      colData.filter(_.nonEmpty) match {
+        case seq if seq.nonEmpty && seq.forall(str => Try(str.toDouble).isSuccess) => Some(classOf[Double])
+        case seq if seq.nonEmpty && seq.forall(str => str.nonEmpty) => Some(classOf[String])
+        case Seq() => None
       }
-      (headers zip dataTypes).toSeq
     }
+    val dataTypesPairs = (headers zip dataTypes)
     val dataTypesMap = dataTypesPairs.toMap
 
     System.gc()
 
     // Infer array types by looking for things ending with numbers and checking for a common prefix
-//    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
-//        .filter(_._2.length >= ARRAY_MIN_LEN)
-    val headerArrays = Map[String, Seq[String]]()
-
+    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
+        .filter(_._2.length >= ARRAY_MIN_LEN)
     val headerDoubleArrays = headerArrays.filter { case (arrayPrefix, arrayElts) =>
       arrayElts.forall(dataTypesMap.getOrElse(_, None) == Some(classOf[Double]))
     }
@@ -200,7 +196,7 @@ object CsvLoader {
     System.gc()
 
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
-    dataBuilders.toSeq.map { dataBuilder =>
+    dataBuilders.map { dataBuilder =>
       status(s"inserting: ${dataBuilder.name}")
       BTreeSeries(dataBuilder.name, dataBuilder.makeTree)
     }
