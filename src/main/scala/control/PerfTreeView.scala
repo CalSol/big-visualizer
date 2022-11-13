@@ -5,6 +5,14 @@ import scalafx.beans.property.StringProperty
 import scalafx.scene.control.{TreeItem, TreeTableColumn, TreeTableView}
 
 
+// Singleton
+object PerfTreeView {
+  private var instance: Option[PerfTreeView] = None
+
+  def apply(): Option[PerfTreeView] = instance
+}
+
+
 class PerfTreeItem(name: String) {
   val nameProp = StringProperty(name)
   val nodeCountProp = StringProperty("")
@@ -21,6 +29,9 @@ class PerfTreeView extends TreeTableView[PerfTreeItem]() {
     children = Seq()
   })
   this.setShowRoot(false)
+
+  require(PerfTreeView.instance.isEmpty, "PerfTreeView must be singleton")
+  PerfTreeView.instance = Some(this)  // at this point it's mutable
 
   columns ++= Seq(
     new TreeTableColumn[PerfTreeItem, String] {
