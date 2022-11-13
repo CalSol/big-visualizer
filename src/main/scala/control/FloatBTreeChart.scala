@@ -1,13 +1,10 @@
 package bigvis
 package control
 
-import btree.{BTree, BTreeAggregate, BTreeData, BTreeLeaf, BTreeResampledNode, BTreeResampler, FloatAggregator}
+import btree._
 
 import javafx.scene.paint.Color
-import scalafx.Includes._
-import scalafx.beans.property.DoubleProperty
 import scalafx.collections.ObservableBuffer
-import scalafx.scene.input.ScrollEvent
 
 import scala.collection.mutable
 
@@ -29,11 +26,8 @@ case class ChartMetadata(
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
 class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
-    extends BaseBTreeChart(parent) {
+    extends BaseXYBTreeChart(parent) {
   import BTreeChart._
-
-  val yLower: DoubleProperty = DoubleProperty(0)
-  val yUpper: DoubleProperty = DoubleProperty(0)
 
   protected val datasets = ObservableBuffer[FloatBTreeSeries]()
 
@@ -57,27 +51,6 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
 
   // Processed data displayed by the current window
   val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
-
-  this.onScroll = (event: ScrollEvent) => {
-    if (event.isShiftDown) {
-      if (event.isControlDown) {
-        val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
-        val range = yUpper.value - yLower.value
-        val mouseFrac = 1 - event.getY / height.value
-        val mouseValue = yLower.value + (range * mouseFrac)
-        val newRange = range * Math.pow(1.01, increment)
-        yLower.value = mouseValue - (newRange * mouseFrac)
-        yUpper.value = mouseValue + (newRange * (1 - mouseFrac))
-      } else {
-        val increment = -event.getDeltaX
-        val range = yUpper.value - yLower.value
-        val shift = (range / 256) * increment
-        yLower.value = yLower.value + shift
-        yUpper.value = yUpper.value + shift
-      }
-      event.consume()
-    }
-  }
 
   // Given a set of parameters (defining the window and resolution) and a data series (BTree),
   // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
