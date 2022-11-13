@@ -53,5 +53,8 @@ object Main extends JFXApp {
       splitPane.setDividerPositions(0.25)
       root = splitPane
     }
+    onCloseRequest = { _ =>
+      perfStage.close()  // also close the performance window when the main window closes
+    }
   }
 }
