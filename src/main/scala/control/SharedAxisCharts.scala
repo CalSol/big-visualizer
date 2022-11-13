@@ -38,10 +38,10 @@ class SharedAxisCharts(val dataItems: mutable.HashMap[String, BTreeSeries]) exte
           xLower.value = bTreeData.tree.minTime
           xUpper.value = bTreeData.tree.maxTime
         }
+        PerfTreeView().foreach(_.addItem(bTreeData.name))
         val chart = BTreeChart.fromTree(this, bTreeData)
         setVgrow(chart, Priority.Always)
         this.items.add(new DraggableBTreeChartWrapper(chart))
-        PerfTreeView().foreach(_.addItem(bTreeData.name))
       }
       case _ =>  // shouldn't get here
     }
