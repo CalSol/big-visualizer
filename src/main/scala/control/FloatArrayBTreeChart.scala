@@ -1,13 +1,10 @@
 package bigvis
 package control
 
-import btree.{BTree, BTreeAggregate, BTreeData, BTreeLeaf, BTreeResampledNode, BTreeResampler, FloatAggregator, FloatArrayAggregator}
+import btree._
 
 import javafx.scene.paint.Color
-import scalafx.Includes._
-import scalafx.beans.property.DoubleProperty
 import scalafx.collections.ObservableBuffer
-import scalafx.scene.input.ScrollEvent
 
 import scala.collection.mutable
 
@@ -16,7 +13,7 @@ case class FloatArrayBTreeSeries(name: String, tree: BTree[FloatArrayAggregator]
 
 
 class FloatArrayBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
-    extends BaseXYBTreeChart(parent) {
+    extends BaseBTreeChart(parent) with XYBTreeChart {
   import BTreeChart._
 
   protected val datasets = ObservableBuffer[FloatArrayBTreeSeries]()

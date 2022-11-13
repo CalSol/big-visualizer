@@ -6,9 +6,8 @@ import scalafx.beans.property.DoubleProperty
 import scalafx.scene.input.ScrollEvent
 
 
-// Base XY BTreeChart that also provides vertical scrolling and zooming
-abstract class BaseXYBTreeChart(container: SharedAxisCharts)
-    extends BaseBTreeChart(container) {
+// Mixin for B-tree charts that provide vertical scrolling and zooming
+trait XYBTreeChart { this: BaseBTreeChart =>
   val yLower: DoubleProperty = DoubleProperty(0)
   val yUpper: DoubleProperty = DoubleProperty(0)
 

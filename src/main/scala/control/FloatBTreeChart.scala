@@ -26,7 +26,7 @@ case class ChartMetadata(
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
 class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
-    extends BaseXYBTreeChart(parent) {
+    extends BaseBTreeChart(parent) with XYBTreeChart {
   import BTreeChart._
 
   protected val datasets = ObservableBuffer[FloatBTreeSeries]()
