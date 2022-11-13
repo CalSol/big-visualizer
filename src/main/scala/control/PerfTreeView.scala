@@ -46,20 +46,22 @@ class PerfTreeView extends TreeTableView[PerfTreeItem]() {
     items.put(name, newItem)
   }
 
+  // Update the data processing related performance stats for an item
   def updateItemPerf(name: String, nodeCount: Long, resampleNodeCount: Long,
                      nodeTime: Double, sectionTime: Double, resampleTime: Double): Unit = {
     items.get(name).foreach { item =>
       item.nodeCountProp.setValue(nodeCount.toString)
       item.resampleNodeCountProp.setValue(resampleNodeCount.toString)
-      item.nodeTimeProp.setValue(f"${nodeTime * 1000}%.1f")
-      item.sectionTimeProp.setValue(f"${sectionTime * 1000}%.1f")
-      item.resampleTimeProp.setValue(f"${resampleTime * 1000}%.1f")
+      item.nodeTimeProp.setValue(f"${nodeTime * 1000}%.1f ms")
+      item.sectionTimeProp.setValue(f"${sectionTime * 1000}%.1f ms")
+      item.resampleTimeProp.setValue(f"${resampleTime * 1000}%.1f ms")
     }
   }
 
+  // Update the rendering performance stats for an item
   def updateItemRender(name: String, renderTime: Double): Unit = {
     items.get(name).foreach { item =>
-      item.renderTimeProp.setValue(f"${renderTime * 1000}%.1f")
+      item.renderTimeProp.setValue(f"${renderTime * 1000}%.1f ms")
     }
   }
 

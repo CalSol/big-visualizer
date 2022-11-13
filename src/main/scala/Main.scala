@@ -7,7 +7,7 @@ import scalafx.application.JFXApp.PrimaryStage
 import scalafx.scene.Scene
 import scalafx.scene.control.{Label, SplitPane}
 import scalafx.scene.layout.VBox.setVgrow
-import scalafx.scene.layout.{GridPane, Priority, VBox}
+import scalafx.scene.layout.{Priority, VBox}
 import scalafx.stage.Stage
 
 
@@ -16,9 +16,11 @@ object Main extends JFXApp {
   val perfStage = new Stage() {
     title = "Performance"
     scene = new Scene {
-      root = new GridPane() {
-        add(new Label(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}"), 0, 0)
-        add(perfTree, 0, 1)
+      root = new VBox {
+        children = Seq(
+          new Label(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}"),
+          perfTree
+        )
       }
     }
   }
