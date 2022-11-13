@@ -97,6 +97,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
         dataBuilder.append((time, new mutable.ListBuffer[Float]()))
       }
       if (dataBuilder.last._2.length != index) {
+        println(f"${this.getClass.getSimpleName} discard out-of-sequence index $index at $time")
         return  // assumption: arrays must be full
       }
       dataBuilder.last._2.append(value.toFloat)
