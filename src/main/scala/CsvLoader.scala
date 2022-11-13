@@ -81,9 +81,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, Map[Int, Float])]()
-  protected var assemblyTime: Option[Long] = None
-  protected val assembly = mutable.HashMap[Int, Float]()
+  protected val dataBuilder = mutable.ArrayBuffer[(Long, mutable.HashMap[Int, Float])]()
 
   class CellParser(index: Int) extends Parser {
     override def toString: String = s"${getClass.getName}($name, $index)"
@@ -92,21 +90,19 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       if (value.isEmpty) {
         return
       }
-      if (assemblyTime != Some(time)) {
-        if (assembly.nonEmpty) {
-          dataBuilder.append((assemblyTime.get, assembly.toMap))
-        }
-        assemblyTime = Some(time)
-        assembly.clear()
+      if (dataBuilder.isEmpty || dataBuilder.last._1 != time) {
+        dataBuilder.append((time, new mutable.HashMap[Int, Float]()))
       }
-      assembly.put(index, value.toFloat)
+      dataBuilder.last._2.put(index, value.toFloat)
     }
 
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
 
   override def makeTree: BTree[BTreeAggregator] = {
-    // TODO implement me
+    val arrayData = dataBuilder.map { case (time, data) =>
+
+    }
     new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
   }
 }
