@@ -81,7 +81,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, mutable.HashMap[Int, Float])]()
+  protected val dataBuilder = mutable.ArrayBuffer[(Long, mutable.ListBuffer[Float])]()
 
   class CellParser(index: Int) extends Parser {
     override def toString: String = s"${getClass.getName}($name, $index)"
@@ -91,19 +91,27 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
         return
       }
       if (dataBuilder.isEmpty || dataBuilder.last._1 != time) {
-        dataBuilder.append((time, new mutable.HashMap[Int, Float]()))
+        if (dataBuilder.nonEmpty) {
+          require(dataBuilder.last._1 < time, "data must be ordered in time")
+        }
+        dataBuilder.append((time, new mutable.ListBuffer[Float]()))
       }
-      dataBuilder.last._2.put(index, value.toFloat)
+      if (dataBuilder.last._2.length != index) {
+        return  // assumption: arrays must be full
+      }
+      dataBuilder.last._2.append(value.toFloat)
     }
 
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
 
-  override def makeTree: BTree[BTreeAggregator] = {
-    val arrayData = dataBuilder.map { case (time, data) =>
-
+  override def makeTree: BTree[FloatArrayAggregator] = {
+    val arrayData = dataBuilder.toSeq.map { case (time, data) =>
+      time -> data.toSeq
     }
-    new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    tree.appendAll(arrayData)
+    tree
   }
 }
 
