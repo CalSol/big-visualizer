@@ -82,6 +82,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
   protected val dataBuilder = mutable.ArrayBuffer[(Long, mutable.ListBuffer[Float])]()
+  protected var arraySize: Int = 0
 
   class CellParser(index: Int) extends Parser {
     override def toString: String = s"${getClass.getName}($name, $index)"
@@ -92,13 +93,13 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       }
       if (dataBuilder.isEmpty || dataBuilder.last._1 != time) {
         if (dataBuilder.nonEmpty) {
+          arraySize = math.max(arraySize, dataBuilder.last._2.length)
           require(dataBuilder.last._1 < time, "data must be ordered in time")
         }
         dataBuilder.append((time, new mutable.ListBuffer[Float]()))
       }
       if (dataBuilder.last._2.length != index) {
-        println(f"${this.getClass.getSimpleName} discard out-of-sequence index $index at $time")
-        return  // assumption: arrays must be full
+        return  // assumption: arrays must be full - partial arrays are warned at the makeTree stage
       }
       dataBuilder.last._2.append(value.toFloat)
     }
@@ -107,8 +108,12 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
   }
 
   override def makeTree: BTree[FloatArrayAggregator] = {
-    val arrayData = dataBuilder.toSeq.map { case (time, data) =>
-      time -> data.toSeq
+    val arrayData = dataBuilder.toSeq.flatMap {
+      case (time, data) if data.length == arraySize =>
+        Some(time -> data.toSeq)
+      case (time, data) =>
+        println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
+        None
     }
     val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
     tree.appendAll(arrayData)
