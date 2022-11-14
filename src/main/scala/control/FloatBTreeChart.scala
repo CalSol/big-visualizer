@@ -50,40 +50,32 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   }
 
   // Processed data displayed by the current window
-  val windowSections: mutable.HashMap[String, IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]]] = mutable.HashMap()
+  val windowSections: mutable.HashMap[String, SectionedData[FloatAggregator]] = mutable.HashMap()
 
   // Given a set of parameters (defining the window and resolution) and a data series (BTree),
   // returns the sectioned (broken by timeBreak if below the minimum resolution) and resampled data.
-  def getData(scale: ChartParameters, series: BTree[FloatAggregator]):
-  (IndexedSeq[IndexedSeq[BTreeData[FloatAggregator]]], ChartMetadata) = {
+  def getData(scale: ChartParameters, series: BTree[FloatAggregator], name: String): SectionedData[FloatAggregator] = {
     val minResolution = (scale.xRange.toDouble / scale.width * PX_PER_POINT).toLong
 
     val (nodeTime, nodes) = timeExec {
       series.getData(scale.xMin, scale.xMax, minResolution)
     }
 
+    // resample (combine) nodes to reduce the resolution to nearer the minimum
+    val (resampleTime, resampledNodes) = timeExec {
+      BTreeResampler(FloatAggregator.aggregator, nodes, minResolution)
+    }
+
     // filter nodes into break-able sections
-    val (sectionTime, rawSections) = timeExec {
-      ChunkSeq(nodes, scale.xMin, (prevTime: Long, elem: BTreeData[FloatAggregator]) => {
-        elem match {
-          case node: BTreeAggregate[FloatAggregator] =>
-            (node.maxTime, node.minTime > prevTime + timeBreak)
-          case node: BTreeLeaf[FloatAggregator] => // TODO return individual data points
-            (node.point._1, node.point._1 > prevTime + timeBreak)
-        }
-      })
+    val (sectionTime, sectionedData) = timeExec {
+      SectionedData.from(resampledNodes, scale.xMin, timeBreak)
     }
 
-    val (resampleTime, sections) = timeExec {  // TODO create IndexedSeqs earlier?
-      rawSections.map { rawSection =>
-        BTreeResampler(FloatAggregator.aggregator, rawSection, minResolution).toIndexedSeq
-      }.toIndexedSeq
-    }
+    PerfTreeView().foreach(_.updateItemPerf(name,
+      nodes.length, resampledNodes.length, nodeTime, sectionTime, resampleTime
+    ))
 
-    val chartMetadata = ChartMetadata(nodeTime, sectionTime, resampleTime,
-      nodes.length, sections.map(_.length).sum)
-
-    (sections, chartMetadata)
+    sectionedData
   }
 
   val chartCanvas = new SectionedFloatChartCanvas()
@@ -109,13 +101,10 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
 
     windowSections.clear()
     val charts = datasets.map { dataset =>
-      val (sections, perf) = getData(scale, dataset.tree)
-      windowSections.put(dataset.name, sections)
+      val sectionedData = getData(scale, dataset.tree, dataset.name)
+      windowSections.put(dataset.name, sectionedData)
 
-      PerfTreeView().foreach(_.updateItemPerf(dataset.name,
-        perf.nodes, perf.resampledNodes, perf.nodeTime, perf.sectionTime, perf.resampleTime
-      ))
-      (dataset, sections)
+      (dataset, sectionedData.sections)
     }
 
     chartCanvas.draw(scale, charts.toSeq)
@@ -130,7 +119,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     val cursorTime = scale.xPosToVal(cursorPos)
 
     val datasetValues = datasets.flatMap { dataset =>
-      new SectionedData(windowSections(dataset.name)).getClosestValue(cursorTime, tolerance)
+      windowSections(dataset.name).getClosestValue(cursorTime, tolerance)
           .map(dataset -> _)
     }
     cursorCanvas.draw(scale, cursorPos, datasetValues.toSeq)
