@@ -11,6 +11,9 @@ import scalafx.scene.paint.Color
 trait MultiDatasetBTreeChart[AggregatorType <: BTreeAggregator] { this: BaseBTreeChart =>
   // implement this, to provide the aggregator type for dataset validation
   protected val aggregatorType: AggregatorType
+  // implement this, to get the min and max value limits of a tree
+  protected def getTreeValueLimits(tree: BTree[AggregatorType]): (Double, Double)
+
 
   protected val datasets = ObservableMap[String, (BTree[AggregatorType], Color)]()
 
@@ -22,15 +25,8 @@ trait MultiDatasetBTreeChart[AggregatorType <: BTreeAggregator] { this: BaseBTre
     datasets.put(dataset.name, (tree, ChartTools.colorForIndex(datasets.size)))
     true
   }
-}
 
-
-trait XYAutosizingBTreeChart[AggregatorType <: BTreeAggregator] {
-  this: BaseBTreeChart with XYBTreeChart with MultiDatasetBTreeChart[AggregatorType] =>
-  // implement this, to get the min and max value limits of a tree
-  protected def getTreeValueLimits(tree: BTree[AggregatorType]): (Double, Double)
-
-  datasets.onChange(
+  datasets.onChange(  // automatically resize Y axis to new dataset, if Y is not sized yet
     if (yLower.getValue == yUpper.getValue) {
       val limits = datasets.toSeq.map { case (name, (tree, color)) => getTreeValueLimits(tree) }
 

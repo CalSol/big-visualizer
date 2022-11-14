@@ -9,6 +9,7 @@ import scalafx.scene.input.{DragEvent, MouseEvent, ScrollEvent, TransferMode}
 import scalafx.scene.layout.Priority
 import scalafx.scene.layout.VBox.setVgrow
 
+import java.time.ZoneId
 import scala.collection.mutable
 
 
@@ -21,6 +22,8 @@ class SharedAxisCharts(val dataItems: mutable.HashMap[String, BTreeSeries]) exte
   val xLower: LongProperty = LongProperty(0)
   val xUpper: LongProperty = LongProperty(0)
   val cursorXPos: DoubleProperty = DoubleProperty(Double.NaN)  // in screen units
+
+  def timeZone: ZoneId = ZoneId.of(ZoneId.SHORT_IDS.get("CST"))  // TODO user-configurable
 
   this.onDragOver = (event: DragEvent) => {
     event.dragboard.content.get(DataTreeView.BTreeDataType) match {

@@ -13,7 +13,7 @@ case class FloatArrayBTreeSeries(name: String, tree: BTree[FloatArrayAggregator]
 
 
 class FloatArrayBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
-    extends BaseBTreeChart(parent) with XYBTreeChart {
+    extends BaseBTreeChart(parent) {
   import BTreeChart._
 
   protected val datasets = ObservableBuffer[FloatArrayBTreeSeries]()
