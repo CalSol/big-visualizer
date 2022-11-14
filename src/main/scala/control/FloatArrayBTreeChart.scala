@@ -21,14 +21,14 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
     datasets.toSeq.flatMap { case (name, (tree, color)) =>
       cachedSections(name).getClosestValue(xPos, tolerance).map {
         case leaf: BTreeLeaf[FloatArrayAggregator] =>
-          // TODO show all individual points
-          val value = leaf.point._2.sum / leaf.point._2.length
-          (f"$name = $value%.5g", value, color)
+          leaf.point._2.zipWithIndex.map { case (point, index) =>
+            (f"$name$index = $point%.5g", point.toDouble, color)
+          }
         case aggr: BTreeAggregate[FloatArrayAggregator] =>
           val average = aggr.nodeData.sum / aggr.nodeData.count
-          (f"$name = ($average%.5g)", average, color)
+          Seq((f"$name = ($average%.5g)", average.toDouble, color))
       }
-    }
+    }.flatten
   }
 
 

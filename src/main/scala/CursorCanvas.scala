@@ -51,7 +51,7 @@ object CursorCanvas {
    * Repeat until there are no more positions to be merged (fixed-point algorithm).
    */
   def spreadPositions(originalPositions: Seq[Double], spread: Double, min: Double, max: Double): Seq[Double] = {
-    require(originalPositions.sorted == originalPositions, "TODO handle non-sorted input")
+    require(originalPositions.sorted == originalPositions, f"got non-sorted input $originalPositions")
 
     var positions = originalPositions.map { pos =>
       LabelGroup(pos, pos, 1, pos - spread / 2, pos + spread / 2)
@@ -104,13 +104,14 @@ class CursorCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.finerScale.getPostfixString(scale.dateTimeFromTimestamp(cursorTime))}",
       cursorPos, scale.height - 60)
 
-    val originalPositions = textValueColors.map { case (text, value, color) =>
+    val sortedTextValueColors = textValueColors.sortBy { case (text, value, color) => -value }
+    val sortedPositions = sortedTextValueColors.map { case (text, value, color) =>
       scale.yValToPos(value)
     }
-    val positions = spreadPositions(originalPositions, 12, 0, scale.height)
+    val fixedPositions = spreadPositions(sortedPositions, 12, 0, scale.height)
 
     gc.save()
-    (textValueColors zip positions).foreach { case ((text, value, color), position) =>
+    (sortedTextValueColors zip fixedPositions).foreach { case ((text, value, color), position) =>
         gc.setFill(color)
       RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND,
         text, cursorPos, position)

@@ -94,7 +94,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       if (dataBuilder.isEmpty || dataBuilder.last._1 != time) {
         if (dataBuilder.nonEmpty) {
           arraySize = math.max(arraySize, dataBuilder.last._2.length)
-          require(dataBuilder.last._1 < time, "data must be ordered in time")
+          require(dataBuilder.last._1 < time, s"data jumped back in time at $time")
         }
         dataBuilder.append((time, new mutable.ListBuffer[Float]()))
       }
