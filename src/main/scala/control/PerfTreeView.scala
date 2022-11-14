@@ -21,8 +21,8 @@ class PerfTreeItem(name: String) {
   val nodeCountProp = StringProperty("")
   val resampleNodeCountProp = StringProperty("")
   val nodeTimeProp = StringProperty("")
-  val sectionTimeProp = StringProperty("")
   val resampleTimeProp = StringProperty("")
+  val sectionTimeProp = StringProperty("")
   val renderTimeProp = StringProperty("")
 }
 
@@ -83,12 +83,12 @@ class PerfTreeView extends TreeTableView[PerfTreeItem]() {
       cellValueFactory = { _.value.value.value.nodeTimeProp }
     },
     new TreeTableColumn[PerfTreeItem, String] {
-      text = "Section Time"
-      cellValueFactory = { _.value.value.value.sectionTimeProp }
-    },
-    new TreeTableColumn[PerfTreeItem, String] {
       text = "Resample Time"
       cellValueFactory = { _.value.value.value.resampleTimeProp }
+    },
+    new TreeTableColumn[PerfTreeItem, String] {
+      text = "Section Time"
+      cellValueFactory = { _.value.value.value.sectionTimeProp }
     },
     new TreeTableColumn[PerfTreeItem, String] {
       text = "Render Time"

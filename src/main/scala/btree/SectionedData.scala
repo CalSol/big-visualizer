@@ -32,8 +32,9 @@ object SectionedData {
 /** Data from a B-tree which has been flattened into a linear continuous series (even if at different levels
   * of detail) and sectioned according to some maximum time break parameter.
   */
-// TODO make sections not a val
-class SectionedData[AggregatorType <: BTreeAggregator](val sections: IndexedSeq[IndexedSeq[BTreeData[AggregatorType]]]) {
+class SectionedData[AggregatorType <: BTreeAggregator](sections: IndexedSeq[IndexedSeq[BTreeData[AggregatorType]]]) {
+  def data: IndexedSeq[IndexedSeq[BTreeData[AggregatorType]]] = sections
+
   def getClosestValue(time: BTree.TimestampType, tolerance: BTree.TimestampType): Option[BTreeData[AggregatorType]] = {
     // Find the section nearest the requested time point
     val sectionsIntervals = sections.map { section =>

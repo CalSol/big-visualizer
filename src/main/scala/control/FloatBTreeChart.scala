@@ -72,7 +72,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     }
 
     PerfTreeView().foreach(_.updateItemPerf(name,
-      nodes.length, resampledNodes.length, nodeTime, sectionTime, resampleTime
+      nodes.length, resampledNodes.length, nodeTime, resampleTime, sectionTime
     ))
 
     sectionedData
@@ -104,7 +104,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
       val sectionedData = getData(scale, dataset.tree, dataset.name)
       windowSections.put(dataset.name, sectionedData)
 
-      (dataset, sectionedData.sections)
+      (dataset, sectionedData)
     }
 
     chartCanvas.draw(scale, charts.toSeq)

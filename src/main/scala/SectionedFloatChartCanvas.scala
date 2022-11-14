@@ -17,14 +17,13 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
 
   // Actual rendering functions, returns rendering time
   protected def drawChart(gc: GraphicsContext, scale: ChartParameters,
-                          sections: Seq[Seq[BTreeData[FloatAggregator]]], chartColor: Color,
-                          offset: Int): Double = {
+                          sectionedData: SectionedData[FloatAggregator], chartColor: Color): Double = {
     gc.save()
     gc.setFill(chartColor)
     gc.setStroke(chartColor)
 
     val renderTime = timeExec {
-      sections.foreach { section =>
+      sectionedData.data.foreach { section =>
         // render the aggregate ranges
         gc.save()
         gc.setFill(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA))
@@ -44,7 +43,7 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
         gc.restore()
       }
 
-      sections.foreach { section =>
+      sectionedData.data.foreach { section =>
         // render the data / average lines
         val sectionPoints = section.map {
           case node: BTreeAggregate[FloatAggregator] =>
@@ -71,7 +70,7 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
   }
 
   def draw(scale: ChartParameters,
-           charts: Seq[(FloatBTreeSeries, Seq[Seq[BTreeData[FloatAggregator]]])]): Unit = {
+           charts: Seq[(FloatBTreeSeries, SectionedData[FloatAggregator])]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -80,8 +79,8 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.yMin}", 0, scale.height)
     gc.fillText(s"${scale.yMax}", 0, 10)
 
-    charts.zipWithIndex.foreach { case ((dataset, sections), i) =>
-      val renderTime = drawChart(gc, scale, sections, dataset.color, i)
+    charts.foreach { case (dataset, sections) =>
+      val renderTime = drawChart(gc, scale, sections, dataset.color)
       PerfTreeView().foreach(_.updateItemRender(dataset.name, renderTime))
     }
   }
