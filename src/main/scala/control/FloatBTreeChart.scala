@@ -128,10 +128,6 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     val cursorPos = parent.cursorXPos.value
     val cursorTime = scale.xPosToVal(cursorPos)
 
-    // TODO get rod of the null
-    val searchPoint: BTreeData[FloatAggregator] =
-      new BTreeResampledNode[FloatAggregator](cursorTime, cursorTime, null)
-
     def dataToStartTime(data: BTreeData[FloatAggregator]): Long = data match {
       case leaf: BTreeLeaf[FloatAggregator] => leaf.point._1
       case aggr: BTreeAggregate[FloatAggregator] => aggr.minTime
@@ -141,8 +137,8 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
       case aggr: BTreeAggregate[FloatAggregator] => aggr.maxTime
     }
 
-    val datasetValues = datasets.map { dataset =>
-      val data = windowSections.get(dataset.name).flatMap { sections =>
+    val datasetValues = datasets.flatMap { dataset =>
+      windowSections.get(dataset.name).flatMap { sections =>
         // Find the section nearest the requested time point
         val sectionsIntervals = sections.map { section =>
           (dataToStartTime(section.head), dataToEndTime(section.last))
@@ -151,7 +147,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
           case Some(result: SearchInterval.SearchIntervalResult[Long]) => Some(sections(result.index()))
           case None => None
         }
-      }.flatMap { section =>
+      }.map { section =>
         // Then find the data point within the section
         val sectionIntervals = section.map { node =>
           (dataToStartTime(node), dataToEndTime(node))
@@ -166,9 +162,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
             Some(section(index))
           case _ => None
         }
-      }
-      // TODO discard option None case here
-      (dataset, data)
+      }.map(dataset -> _)
     }
     cursorCanvas.draw(scale, cursorPos, datasetValues.toSeq)
   }

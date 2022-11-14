@@ -8,8 +8,8 @@ import scalafx.scene.input.ScrollEvent
 
 // Mixin for B-tree charts that provide vertical scrolling and zooming
 trait XYBTreeChart { this: BaseBTreeChart =>
-  val yLower: DoubleProperty = DoubleProperty(0)
-  val yUpper: DoubleProperty = DoubleProperty(0)
+  val yLower: DoubleProperty = DoubleProperty(0)  // data value at bottom of window
+  val yUpper: DoubleProperty = DoubleProperty(0)  // data value at top of window
 
   this.onScroll = (event: ScrollEvent) => {
     if (event.isShiftDown) {

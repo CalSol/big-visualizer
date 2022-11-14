@@ -1,7 +1,7 @@
 package bigvis
 
 import btree._
-import control.{BaseChartCanvas, ChartMetadata, ChartParameters, FloatBTreeSeries, PerfTreeView}
+import control.{BaseChartCanvas, ChartParameters, FloatBTreeSeries, PerfTreeView}
 
 import javafx.scene.canvas.GraphicsContext
 import javafx.scene.paint.Color
