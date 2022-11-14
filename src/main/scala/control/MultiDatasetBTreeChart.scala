@@ -27,11 +27,10 @@ trait MultiDatasetBTreeChart[AggregatorType <: BTreeAggregator] { this: BaseBTre
   }
 
   datasets.onChange(  // automatically resize Y axis to new dataset, if Y is not sized yet
-    if (yLower.getValue == yUpper.getValue) {
+    if (yAxis.value._1 == yAxis.value._2) {
       val limits = datasets.toSeq.map { case (name, (tree, color)) => getTreeValueLimits(tree) }
 
-      yLower.value = limits.map(_._1).min
-      yUpper.value = limits.map(_._2).max
+      yAxis.value = (limits.map(_._1).min, limits.map(_._2).max)
     }
   )
 }

@@ -24,8 +24,7 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     }
     val tree = dataset.tree.asInstanceOf[BTree[FloatArrayAggregator]]
     if (datasets.isEmpty) {
-      yLower.value = tree.rootData.min
-      yUpper.value = tree.rootData.max
+      yAxis.value = (tree.rootData.min, tree.rootData.max)
     }
 
     datasets.append(FloatArrayBTreeSeries(
