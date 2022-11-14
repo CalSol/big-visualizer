@@ -60,6 +60,9 @@ object SearchInterval {
           case (Some(prev: SearchIntervalResult[T]), None) => Some(prev)
           case (None, Some(next)) => Some(next)
           case (None, None) => None
+
+          // should not be possible  but the type system doesn't agree
+          case (Some(prev: NearestAfter[T]), Some(next: NearestAfter[T])) => throw new IllegalArgumentException()
       }
     }
   }
