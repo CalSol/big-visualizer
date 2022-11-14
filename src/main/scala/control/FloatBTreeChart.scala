@@ -86,7 +86,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     (sections, chartMetadata)
   }
 
-  val chartCanvas = new ChartCanvas()
+  val chartCanvas = new SectionedFloatChartCanvas()
   children.append(chartCanvas)
   chartCanvas.widthProperty().bind(width)
   chartCanvas.heightProperty().bind(height)
@@ -124,6 +124,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   protected def redrawCursor(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
       parent.xLower.value, parent.xUpper.value, yLower.value, yUpper.value, timeZone)
+    val tolerance = (ChartCommon.CURSOR_SNAP_PX / scale.xScale).toLong
 
     val cursorPos = parent.cursorXPos.value
     val cursorTime = scale.xPosToVal(cursorPos)
@@ -143,24 +144,16 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
         val sectionsIntervals = sections.map { section =>
           (dataToStartTime(section.head), dataToEndTime(section.last))
         }
-        SearchInterval(sectionsIntervals, cursorTime) match {
-          case Some(result: SearchInterval.SearchIntervalResult[Long]) => Some(sections(result.index()))
-          case None => None
+        SearchInterval(sectionsIntervals, cursorTime, tolerance).map { result =>
+          sections(result.index())
         }
-      }.map { section =>
+      }.map { sections =>
         // Then find the data point within the section
-        val sectionIntervals = section.map { node =>
+        val sectionIntervals = sections.map { node =>
           (dataToStartTime(node), dataToEndTime(node))
         }
-        val tolerance = ChartCommon.CURSOR_SNAP_PX / scale.xScale
-        SearchInterval(sectionIntervals, cursorTime) match {
-          case Some(SearchInterval.ContainedIn(index)) =>
-            Some(section(index))
-          case Some(SearchInterval.NearestBefore(index, distance)) if distance <= tolerance =>
-            Some(section(index))
-          case Some(SearchInterval.NearestAfter(index, distance)) if distance <= tolerance =>
-            Some(section(index))
-          case _ => None
+        SearchInterval(sectionIntervals, cursorTime, tolerance).map { result =>
+          sections(result.index())
         }
       }.map(dataset -> _)
     }

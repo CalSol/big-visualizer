@@ -7,13 +7,13 @@ import javafx.scene.canvas.GraphicsContext
 import javafx.scene.paint.Color
 
 
-object ChartCanvas {
+object SectionedFloatChartCanvas {
   protected val AGGREGATE_ALPHA = 0.25
 }
 
 
-class ChartCanvas extends BaseChartCanvas {
-  import ChartCanvas._
+class SectionedFloatChartCanvas extends BaseChartCanvas {
+  import SectionedFloatChartCanvas._
 
   // Actual rendering functions, returns rendering time
   protected def drawChart(gc: GraphicsContext, scale: ChartParameters,

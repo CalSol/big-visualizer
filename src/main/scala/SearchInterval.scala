@@ -15,9 +15,10 @@ object SearchInterval {
 
 
   /** Given a data containing intervals, returns the index of the interval containing the search point,
-   * or the index nearest the search point.
+   * or the index nearest the search point if it's within some tolerance.
    */
-  def apply[T](data: Seq[(T, T)], searchPoint: T)(implicit num: Numeric[T]): Option[SearchIntervalResult[T]] = {
+  def apply[T](data: Seq[(T, T)], searchPoint: T, tolerance: T)
+              (implicit num: Numeric[T]): Option[SearchIntervalResult[T]] = {
     import num._
 
     // Assumption: input is a sorted list, intervals do not overlap
@@ -28,22 +29,27 @@ object SearchInterval {
         val prevOption = if (insertionPoint > 0) {
           val prevPoint = data(insertionPoint - 1)
           if (prevPoint._1 <= searchPoint && searchPoint <= prevPoint._2) {
-            // prefer contained section
-            Some(ContainedIn(insertionPoint - 1))
-          } else {
+            Some(ContainedIn(insertionPoint - 1))  // prefer contained section
+          } else if (searchPoint - prevPoint._2 <= tolerance) {  // filter by distance tolerance
             Some(NearestBefore(insertionPoint - 1, searchPoint - prevPoint._2))
+          } else {
+            None
           }
         } else {
           None
         }
         val nextOption = if (insertionPoint < data.length) {
           val nextPoint = data(insertionPoint)
-          Some(NearestAfter(insertionPoint, nextPoint._1 - searchPoint))
+          if (nextPoint._1 - searchPoint <= tolerance) {  // filter by distance tolerance
+            Some(NearestAfter(insertionPoint, nextPoint._1 - searchPoint))
+          } else {
+            None
+          }
         } else {
           None
         }
 
-        (prevOption, nextOption) match {
+        (prevOption, nextOption) match {  // if both prev and next, select the best (by contained, then distance)
           case (Some(prev: ContainedIn[T]), _) => Some(prev)
           case (Some(prev: NearestBefore[T]), Some(next: NearestAfter[T])) =>
             if (prev.distance < next.distance) {
