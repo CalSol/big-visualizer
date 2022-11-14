@@ -129,8 +129,9 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     val cursorPos = parent.cursorXPos.value
     val cursorTime = scale.xPosToVal(cursorPos)
 
-    val datasetValues = datasets.map { dataset =>
-      dataset -> new SectionedData(windowSections(dataset.name)).getClosestValue(cursorTime, tolerance)
+    val datasetValues = datasets.flatMap { dataset =>
+      new SectionedData(windowSections(dataset.name)).getClosestValue(cursorTime, tolerance)
+          .map(dataset -> _)
     }
     cursorCanvas.draw(scale, cursorPos, datasetValues.toSeq)
   }

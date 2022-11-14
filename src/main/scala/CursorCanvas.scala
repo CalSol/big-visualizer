@@ -93,7 +93,7 @@ class CursorCanvas extends BaseChartCanvas {
   import CursorCanvas._
 
   def draw(scale: ChartParameters, cursorPos: Double,
-           datasetData: Seq[(FloatBTreeSeries, Option[BTreeData[FloatAggregator]])]): Unit = {
+           datasetData: Seq[(FloatBTreeSeries, BTreeData[FloatAggregator])]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -103,10 +103,10 @@ class CursorCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.finerScale.getPostfixString(scale.dateTimeFromTimestamp(cursorTime))}",
       cursorPos, scale.height - 60)
 
-    val datasetValues = datasetData.collect {
-      case (dataset, Some(leaf: BTreeLeaf[FloatAggregator])) =>
+    val datasetValues = datasetData.map {
+      case (dataset, leaf: BTreeLeaf[FloatAggregator]) =>
         (dataset, leaf.point._2)
-      case (dataset, Some(aggr: BTreeAggregate[FloatAggregator])) =>
+      case (dataset, aggr: BTreeAggregate[FloatAggregator]) =>
         (dataset, aggr.nodeData.sum / aggr.nodeData.count)
     }.sortBy(-_._2)
 
