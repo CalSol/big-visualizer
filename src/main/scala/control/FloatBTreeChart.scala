@@ -4,15 +4,6 @@ package control
 import btree._
 
 
-case class ChartMetadata(
-                            nodeTime: Double,
-                            sectionTime: Double,
-                            resampleTime: Double,
-                            nodes: Long,
-                            resampledNodes: Long
-                        )
-
-
 // A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
 // Inspired by:
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
