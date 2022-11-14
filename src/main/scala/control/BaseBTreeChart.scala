@@ -3,7 +3,7 @@ package control
 
 import btree._
 
-import javafx.scene.paint.Color
+import scalafx.scene.paint.Color
 import scalafx.scene.layout.StackPane
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}

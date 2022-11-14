@@ -3,13 +3,7 @@ package control
 
 import btree._
 
-import javafx.scene.paint.Color
-import scalafx.collections.ObservableBuffer
-
 import scala.collection.mutable
-
-
-case class FloatBTreeSeries(name: String, tree: BTree[FloatAggregator], color: Color)
 
 
 case class ChartMetadata(
@@ -26,29 +20,16 @@ case class ChartMetadata(
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
 class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
-    extends BaseBTreeChart(parent) with XYBTreeChart {
+    extends BaseBTreeChart(parent) with XYBTreeChart with MultiDatasetBTreeChart[FloatAggregator]
+        with XYAutosizingBTreeChart[FloatAggregator] {
   import BTreeChart._
 
-  protected val datasets = ObservableBuffer[FloatBTreeSeries]()
-
-  override def addDataset(dataset: BTreeSeries): Boolean = {
-    if (dataset.tree.aggregatorType != FloatAggregator.aggregator) {
-      return false
-    }
-    val tree = dataset.tree.asInstanceOf[BTree[FloatAggregator]]
-    if (datasets.isEmpty) {
-      yLower.value = tree.rootData.min
-      yUpper.value = tree.rootData.max
-    }
-
-    datasets.append(FloatBTreeSeries(
-      dataset.name, tree,
-      ChartTools.colorForIndex(datasets.length)
-    ))
-
-    true
+  override protected val aggregatorType: FloatAggregator = FloatAggregator.aggregator
+  override def getTreeValueLimits(tree: BTree[FloatAggregator]): (Double, Double) = {
+    (tree.rootData.min, tree.rootData.max)
   }
 
+  
   // Processed data displayed by the current window
   val windowSections: mutable.HashMap[String, SectionedData[FloatAggregator]] = mutable.HashMap()
 
@@ -100,11 +81,11 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
       parent.xLower.value, parent.xUpper.value, yLower.value, yUpper.value, timeZone)
 
     windowSections.clear()
-    val charts = datasets.map { dataset =>
-      val sectionedData = getData(scale, dataset.tree, dataset.name)
-      windowSections.put(dataset.name, sectionedData)
+    val charts = datasets.map { case (name, (tree, color)) =>
+      val sectionedData = getData(scale, tree, name)
+      windowSections.put(name, sectionedData)
 
-      (dataset, sectionedData)
+      (name, sectionedData, color)
     }
 
     chartCanvas.draw(scale, charts.toSeq)
@@ -118,9 +99,9 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
     val cursorPos = parent.cursorXPos.value
     val cursorTime = scale.xPosToVal(cursorPos)
 
-    val datasetValues = datasets.flatMap { dataset =>
-      windowSections(dataset.name).getClosestValue(cursorTime, tolerance)
-          .map(dataset -> _)
+    val datasetValues = datasets.flatMap { case (name, (tree, color)) =>
+      windowSections(name).getClosestValue(cursorTime, tolerance)
+          .map((name, _, color))
     }
     cursorCanvas.draw(scale, cursorPos, datasetValues.toSeq)
   }

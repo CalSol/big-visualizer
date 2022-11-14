@@ -1,10 +1,10 @@
 package bigvis
 
 import btree._
-import control.{BaseChartCanvas, ChartParameters, FloatBTreeSeries, PerfTreeView}
+import control.{BaseChartCanvas, ChartParameters, PerfTreeView}
 
 import javafx.scene.canvas.GraphicsContext
-import javafx.scene.paint.Color
+import scalafx.scene.paint.Color
 
 
 object SectionedFloatChartCanvas {
@@ -30,7 +30,6 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
         val bottomPoints = section.map {
           case node: BTreeLeaf[FloatAggregator] => (node.point._1, node.point._2)
           case node: BTreeAggregate[FloatAggregator] => ((node.maxTime + node.minTime) / 2, node.nodeData.min)
-
         }
         val topPoints = section.map {
           case node: BTreeLeaf[FloatAggregator] => (node.point._1, node.point._2)
@@ -70,7 +69,7 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
   }
 
   def draw(scale: ChartParameters,
-           charts: Seq[(FloatBTreeSeries, SectionedData[FloatAggregator])]): Unit = {
+           charts: Seq[(String, SectionedData[FloatAggregator], Color)]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -79,9 +78,9 @@ class SectionedFloatChartCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.yMin}", 0, scale.height)
     gc.fillText(s"${scale.yMax}", 0, 10)
 
-    charts.foreach { case (dataset, sections) =>
-      val renderTime = drawChart(gc, scale, sections, dataset.color)
-      PerfTreeView().foreach(_.updateItemRender(dataset.name, renderTime))
+    charts.foreach { case (name, sections, color) =>
+      val renderTime = drawChart(gc, scale, sections, color)
+      PerfTreeView().foreach(_.updateItemRender(name, renderTime))
     }
   }
 }
