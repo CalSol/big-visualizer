@@ -9,8 +9,10 @@ import scalafx.scene.paint.Color
 
 // Mixin for B-tree charts that can contains multiple datasets
 trait MultiDatasetBTreeChart[AggregatorType <: BTreeAggregator] { this: BaseBTreeChart =>
-  protected val datasets = ObservableMap[String, (BTree[AggregatorType], Color)]()
+  // implement this, to provide the aggregator type for dataset validation
   protected val aggregatorType: AggregatorType
+
+  protected val datasets = ObservableMap[String, (BTree[AggregatorType], Color)]()
 
   override def addDataset(dataset: BTreeSeries): Boolean = {
     if (dataset.tree.aggregatorType != aggregatorType) {
@@ -25,7 +27,8 @@ trait MultiDatasetBTreeChart[AggregatorType <: BTreeAggregator] { this: BaseBTre
 
 trait XYAutosizingBTreeChart[AggregatorType <: BTreeAggregator] {
   this: BaseBTreeChart with XYBTreeChart with MultiDatasetBTreeChart[AggregatorType] =>
-  def getTreeValueLimits(tree: BTree[AggregatorType]): (Double, Double)
+  // implement this, to get the min and max value limits of a tree
+  protected def getTreeValueLimits(tree: BTree[AggregatorType]): (Double, Double)
 
   datasets.onChange(
     if (yLower.getValue == yUpper.getValue) {

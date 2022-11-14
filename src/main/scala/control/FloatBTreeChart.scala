@@ -25,11 +25,11 @@ class FloatBTreeChart(parent: SharedAxisCharts, timeBreak: Long)
   import BTreeChart._
 
   override protected val aggregatorType: FloatAggregator = FloatAggregator.aggregator
-  override def getTreeValueLimits(tree: BTree[FloatAggregator]): (Double, Double) = {
+  override protected def getTreeValueLimits(tree: BTree[FloatAggregator]): (Double, Double) = {
     (tree.rootData.min, tree.rootData.max)
   }
 
-  
+
   // Processed data displayed by the current window
   val windowSections: mutable.HashMap[String, SectionedData[FloatAggregator]] = mutable.HashMap()
 
