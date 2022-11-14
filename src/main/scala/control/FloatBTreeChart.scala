@@ -44,7 +44,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
 
   protected def redrawChart(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
-      container.xLower.value, container.xUpper.value, yLower.value, yUpper.value, container.timeZone)
+      container.xAxis.value._1, container.xAxis.value._2, yLower.value, yUpper.value, container.timeZone)
     val charts = datasets.map { case (name, (tree, color)) =>
       (name, cachedSections(name), color)
     }
@@ -53,7 +53,7 @@ class FloatBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
 
   protected def redrawCursor(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
-      parent.xLower.value, parent.xUpper.value, yLower.value, yUpper.value, container.timeZone)
+      parent.xAxis.value._1, parent.xAxis.value._1, yLower.value, yUpper.value, container.timeZone)
     val tolerance = (ChartCommon.CURSOR_SNAP_PX / scale.xScale).toLong
 
     val cursorPos = parent.cursorXPos.value

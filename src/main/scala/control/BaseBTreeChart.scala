@@ -113,13 +113,13 @@ abstract class BaseBTreeChart(val container: SharedAxisCharts) extends StackPane
   children.append(gridCanvas)
   gridCanvas.widthProperty().bind(width)
   gridCanvas.heightProperty().bind(height)
-  Seq(width, height, container.xLower, container.xUpper).foreach { observable =>
+  Seq(width, height, container.xAxis).foreach { observable =>
     observable.onChange(redrawGrid())
   }
 
   protected def redrawGrid(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
-      container.xLower.value, container.xUpper.value, 0, 0, container.timeZone)
+      container.xAxis.value._1, container.xAxis.value._2, 0, 0, container.timeZone)
     gridCanvas.draw(scale)
   }
 }

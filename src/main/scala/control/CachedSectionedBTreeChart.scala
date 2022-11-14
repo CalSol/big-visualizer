@@ -51,7 +51,7 @@ trait CachedSectionedMultiDatasetBTreeChart[AggregatorType <: BTreeAggregator]
 
   def updateSections(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
-      container.xLower.value, container.xUpper.value, yLower.value, yUpper.value, container.timeZone)
+      container.xAxis.value._1, container.xAxis.value._2, yLower.value, yUpper.value, container.timeZone)
 
     val newCachedSections = datasets.map { case (name, (tree, color)) =>
       name -> calculateSection(scale, tree, name)
@@ -60,7 +60,7 @@ trait CachedSectionedMultiDatasetBTreeChart[AggregatorType <: BTreeAggregator]
     cachedSections.addAll(newCachedSections)
   }
 
-  Seq(width, height, container.xLower, container.xUpper, yLower, yUpper,
+  Seq(width, height, container.xAxis, yLower, yUpper,
     datasets).foreach { observable =>  // triggers chart re-draw
     observable.onInvalidate(updateSections())
   }
