@@ -73,6 +73,10 @@ object BTreeChart {  // rendering properties
       val chart = new FloatBTreeChart(parent, 1000)  // TODO customizable timeBreak
       chart.addDataset(series)
       chart
+    case tree: BTree[FloatArrayAggregator]@unchecked if tree.aggregatorType == FloatArrayAggregator.aggregator =>
+      val chart = new FloatArrayBTreeChart(parent, 1000) // TODO customizable timeBreak
+      chart.addDataset(series)
+      chart
     case tree: BTree[StringAggregator] @unchecked if tree.aggregatorType == StringAggregator.aggregator =>
       ???
     case tree => throw new IllegalArgumentException(s"bad tree $tree of type ${tree.getClass.getName}")
