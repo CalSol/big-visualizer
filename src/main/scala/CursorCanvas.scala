@@ -1,6 +1,5 @@
 package bigvis
 
-import btree.{BTreeAggregate, BTreeData, BTreeLeaf, FloatAggregator}
 import control._
 
 import scalafx.scene.paint.Color
@@ -95,7 +94,7 @@ class CursorCanvas extends BaseChartCanvas {
   import CursorCanvas._
 
   def draw(scale: ChartParameters, cursorPos: Double,
-           datasetData: Seq[(String, BTreeData[FloatAggregator], Color)]): Unit = {
+           textValueColors: Seq[(String, Double, Color)]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -105,24 +104,16 @@ class CursorCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.finerScale.getPostfixString(scale.dateTimeFromTimestamp(cursorTime))}",
       cursorPos, scale.height - 60)
 
-    val datasetValues = datasetData.map {
-      case (name, leaf: BTreeLeaf[FloatAggregator], color) =>
-        (name, leaf.point._2, color)
-      case (name, aggr: BTreeAggregate[FloatAggregator], color) =>
-        (name, aggr.nodeData.sum / aggr.nodeData.count, color)
-    }.sortBy(-_._2)
-
-    val originalPositions = datasetValues.map { case (name, value, color) =>
+    val originalPositions = textValueColors.map { case (text, value, color) =>
       scale.yValToPos(value)
     }
     val positions = spreadPositions(originalPositions, 12, 0, scale.height)
 
     gc.save()
-    (datasetValues zip positions).foreach { case ((name, value, color), position) =>
+    (textValueColors zip positions).foreach { case ((text, value, color), position) =>
         gc.setFill(color)
       RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND,
-          f"$name = $value%.5g",
-          cursorPos, position)
+        text, cursorPos, position)
     }
     gc.restore()
   }
