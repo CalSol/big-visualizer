@@ -36,9 +36,9 @@ case class ChartParameters(width: Int, height: Int, xAxis: (Long, Long), yAxis: 
   val (xMin, xMax) = xAxis
   val (yMin, yMax) = yAxis
 
-  val xRange: Long = xAxis._2 - xAxis._1
+  val xRange: Long = xMax - xMin
   val xScale: Double = width.toDouble / xRange  // multiply time units by this to get offset in pixels
-  val yRange: Double = yAxis._2 - yAxis._1
+  val yRange: Double = yMax - yMin
   val yScale: Double = height.toDouble / yRange  // multiply value units by this to get offset in pixels
 
   // select the ticks where there is at most one tick per 64px
@@ -47,9 +47,9 @@ case class ChartParameters(width: Int, height: Int, xAxis: (Long, Long), yAxis: 
   val contextScale: ContextAxisScale = AxisScales.getContextScale(tickScale)
   val finerScale: ContextAxisScale = AxisScales.getFinerScale(tickScale)
 
-  def xValToPos(value: Long): Double = (value - xAxis._1) * xScale
-  def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xAxis._1
-  def yValToPos(value: Double): Double = (yAxis._2 - value) * yScale
+  def xValToPos(value: Long): Double = (value - xMin) * xScale
+  def xPosToVal(pos: Double): Long = (pos / xScale).toLong + xMin
+  def yValToPos(value: Double): Double = (yMax - value) * yScale
 
   // TODO is this the right place for these functions to live?
   def timestampFromDateTime(dateTime: ZonedDateTime): Long = {
