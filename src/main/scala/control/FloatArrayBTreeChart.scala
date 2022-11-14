@@ -32,7 +32,7 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
   }
 
 
-  val chartCanvas = new SectionedFloatChartCanvas()
+  val chartCanvas = new SectionedFloatArrayChartCanvas()
   children.append(chartCanvas)
   chartCanvas.widthProperty().bind(width)
   chartCanvas.heightProperty().bind(height)
@@ -47,6 +47,6 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
     val charts = datasets.map { case (name, (tree, color)) =>
       (name, cachedSections(name), color)
     }
-//    chartCanvas.draw(scale, charts.toSeq)
+    chartCanvas.draw(scale, charts.toSeq)
   }
 }
