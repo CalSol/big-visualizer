@@ -14,15 +14,10 @@ object SectionedData {
   }
 
   // creates SectionedData from BTree getData, chunking by breakTime breaks
-  def from[AggregatorType <: BTreeAggregator](nodes: Seq[BTreeData[AggregatorType]], initVal: BTree.TimestampType,
+  def from[AggregatorType <: BTreeAggregator](nodes: Seq[BTreeData[AggregatorType]],
                                               breakTime: BTree.TimestampType): SectionedData[AggregatorType] = {
-    val sectioned = ChunkSeq(nodes, initVal, (prevTime: Long, elem: BTreeData[AggregatorType]) => {
-      elem match {
-        case node: BTreeAggregate[AggregatorType] =>
-          (node.maxTime, node.minTime > prevTime + breakTime)
-        case node: BTreeLeaf[AggregatorType] => // TODO return individual data points
-          (node.point._1, node.point._1 > prevTime + breakTime)
-      }
+    val sectioned = ChunkSeq[BTreeData[AggregatorType], Long](nodes, Long.MinValue, (prevEndTime, elem) => {
+      (elem.maxTime, elem.minTime > prevEndTime + breakTime)
     }).map{_.toIndexedSeq}
     new SectionedData(sectioned.toIndexedSeq)
   }

@@ -31,7 +31,7 @@ trait SectionedBTreeChart[AggregatorType <: BTreeAggregator] {
 
     // filter nodes into break-able sections
     val (sectionTime, sectionedData) = timeExec {
-      SectionedData.from(resampledNodes, scale.xMin, timeBreak)
+      SectionedData.from(resampledNodes, timeBreak)
     }
 
     PerfTreeView().foreach(_.updateItemPerf(name,
