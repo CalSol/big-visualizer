@@ -1,13 +1,10 @@
 package bigvis
 package control
 
-import btree.{BTree, BTreeAggregator, BTreeResampler, FloatAggregator, SectionedData}
+import btree.{BTree, BTreeAggregator, BTreeResampler, SectionedData}
+import control.BTreeChart.PX_PER_POINT
 
-import bigvis.control.BTreeChart.PX_PER_POINT
-import scalafx.beans.value.ObservableValue
 import scalafx.collections.ObservableMap
-
-import scala.collection.mutable
 
 trait SectionedBTreeChart[AggregatorType <: BTreeAggregator] {
   // implement me: time break for sectioning configuration
