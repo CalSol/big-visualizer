@@ -3,11 +3,11 @@ package control
 
 import btree._
 
-import scalafx.scene.paint.Color
-import scalafx.scene.layout.StackPane
 import scalafx.Includes._
-import scalafx.beans.property.{DoubleProperty, ObjectProperty}
+import scalafx.beans.property.ObjectProperty
 import scalafx.scene.input.ScrollEvent
+import scalafx.scene.layout.StackPane
+import scalafx.scene.paint.Color
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 
