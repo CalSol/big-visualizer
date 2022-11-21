@@ -1,7 +1,7 @@
 package bigvis
 
 import btree._
-import control.{BaseChartCanvas, ChartParameters, PerfTreeView}
+import control.{BaseChartCanvas, ChartParameters, ChartTools, PerfTreeView, SectionedChartCanvasUtils}
 
 import javafx.scene.canvas.GraphicsContext
 import scalafx.scene.paint.Color
@@ -24,44 +24,57 @@ class SectionedFloatArrayChartCanvas extends BaseChartCanvas {
 
     val renderTime = timeExec {
       sectionedData.data.foreach { section =>
-        // render the aggregate ranges
-        gc.save()
-        gc.setFill(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA))
-        val bottomPoints = section.map {
-          case node: BTreeLeaf[FloatArrayAggregator] => (node.point._1, node.point._2.min)
-          case node: BTreeAggregate[FloatArrayAggregator] => ((node.maxTime + node.minTime) / 2, node.nodeData.min)
-        }
-        val topPoints = section.map {
-          case node: BTreeLeaf[FloatArrayAggregator] => (node.point._1, node.point._2.max)
-          case node: BTreeAggregate[FloatArrayAggregator] => ((node.maxTime + node.minTime) / 2, node.nodeData.max)
-        }
-        val polygonPoints = bottomPoints ++ topPoints.reverse
-        val polygonXs = polygonPoints.map { point => scale.xValToPos(point._1) }.toArray
-        val polygonYs = polygonPoints.map { point => scale.yValToPos(point._2) }.toArray
-        gc.fillPolygon(polygonXs, polygonYs, polygonPoints.size)
-        gc.restore()
-      }
+        SectionedChartCanvasUtils.foreachSectionByNodeType[FloatArrayAggregator](section, { aggregateSection =>
+          val bottomTopMeanPoints = aggregateSection.map { node =>
+            (scale.xValToPos((node.maxTime + node.minTime) / 2),
+                scale.yValToPos(node.nodeData.min),
+                scale.yValToPos(node.nodeData.max),
+                scale.yValToPos(node.nodeData.sum / node.nodeData.count))
+          }
 
-      sectionedData.data.foreach { section =>
-        // render the data / average lines
-        val sectionPoints = section.map {
-          case node: BTreeAggregate[FloatArrayAggregator] =>
-            ((node.minTime + node.maxTime) / 2, node.nodeData.sum / node.nodeData.count)
-          case node: BTreeLeaf[FloatArrayAggregator] =>
-            node.point._2.foreach { point =>
-              gc.fillOval(
-                scale.xValToPos(node.point._1) - 2,
-                scale.yValToPos(point) - 2,
-                4, 4) // render as points
+          // render the aggregate ranges
+          gc.save()
+          gc.setFill(chartColor.deriveColor(0, 1, 1, AGGREGATE_ALPHA))
+          gc.fillPolygon(
+            (bottomTopMeanPoints.map(_._1) ++ bottomTopMeanPoints.reverse.map(_._1)).toArray,
+            (bottomTopMeanPoints.map(_._2) ++ bottomTopMeanPoints.reverse.map(_._3)).toArray,
+            bottomTopMeanPoints.length * 2)
+          gc.restore()
+
+          // render the center line
+          gc.strokePolyline(
+            bottomTopMeanPoints.map(_._1).toArray,
+            bottomTopMeanPoints.map(_._4).toArray,
+            bottomTopMeanPoints.length)
+        }, { leafSection =>
+          val series = leafSection.map { node =>
+            val nodeTime = scale.xValToPos(node.point._1)
+            node.point._2.map { value =>
+              (nodeTime, scale.yValToPos(value))
             }
+          }.transpose
+          gc.save()
+          series.zipWithIndex foreach { case (points, index) =>
+            val seriesColor = ChartTools.colorForSubseries(chartColor, index, series.length)
+            gc.setFill(seriesColor)
+            gc.setStroke(seriesColor)
 
-            node.point._2.sum / node.point._2.length
-        }
+            // render the center line
+            gc.strokePolyline(
+              points.map(_._1).toArray,
+              points.map(_._2).toArray,
+              points.length)
 
-//        gc.strokePolyline(
-//          sectionPoints.map(point => scale.xValToPos(point._1)).toArray,
-//          sectionPoints.map(point => scale.yValToPos(point._2)).toArray,
-//          sectionPoints.length)
+            // render individual points
+            points.foreach { point =>
+              gc.fillOval(
+                point._1 - 2,
+                point._2 - 2,
+                4, 4)
+            }
+          }
+          gc.restore()
+        })
       }
     }
 

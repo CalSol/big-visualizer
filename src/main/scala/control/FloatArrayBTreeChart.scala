@@ -22,7 +22,8 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
       cachedSections(name).getClosestValue(xPos, tolerance).map {
         case leaf: BTreeLeaf[FloatArrayAggregator] =>
           leaf.point._2.zipWithIndex.map { case (point, index) =>
-            (f"$name$index = $point%.5g", point.toDouble, color)
+            (f"$name$index = $point%.5g", point.toDouble,
+                ChartTools.colorForSubseries(color, index, leaf.point._2.length))
           }
         case aggr: BTreeAggregate[FloatArrayAggregator] =>
           val average = aggr.nodeData.sum / aggr.nodeData.count

@@ -28,6 +28,16 @@ object ChartTools {
   def colorForIndex(index: Int): Color = {
     Color.hsb((goldenRatioConjugate * 360 * index) % 360, 0.75, 0.75, 0.5)
   }
+
+  protected val kSubseriesBrightnessRange = 0.66
+  protected val kSubseriesHueRange = 60
+
+  def colorForSubseries(seriesColor: Color, index: Int, total: Int): Color = {
+    val indexFrac = index.toFloat / (total - 1)
+    Color.hsb(seriesColor.hue + indexFrac * kSubseriesHueRange - kSubseriesHueRange / 2,
+      seriesColor.saturation,
+      seriesColor.brightness * (1 + kSubseriesBrightnessRange / 2 - indexFrac * kSubseriesBrightnessRange))
+  }
 }
 
 
