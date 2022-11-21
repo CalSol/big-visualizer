@@ -114,7 +114,7 @@ abstract class BaseBTreeChart(val container: SharedAxisCharts) extends StackPane
         val newRange = range * Math.pow(1.01, increment)
         yAxis.value = (mouseValue - (newRange * mouseFrac), mouseValue + (newRange * (1 - mouseFrac)))
       } else {
-        val increment = -event.getDeltaX
+        val increment = event.getDeltaX
         val range = yAxis.value._2 - yAxis.value._1
         val shift = (range / 256) * increment
         yAxis.value = (yAxis.value._1 + shift, yAxis.value._2 + shift)
