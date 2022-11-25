@@ -110,7 +110,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
   override def makeTree: BTree[FloatArrayAggregator] = {
     val arrayData = dataBuilder.toSeq.flatMap {
       case (time, data) if data.length == arraySize =>
-        Some(time -> data.toSeq)
+        Some(time -> data.toArray)
       case (time, data) =>
         println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
         None

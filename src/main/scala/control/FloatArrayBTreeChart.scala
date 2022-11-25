@@ -21,7 +21,7 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
     datasets.toSeq.flatMap { case (name, (tree, color)) =>
       cachedSections(name).getClosestValue(xPos, tolerance).map {
         case leaf: BTreeLeaf[FloatArrayAggregator] =>
-          leaf.point._2.zipWithIndex.map { case (point, index) =>
+          leaf.point._2.toSeq.zipWithIndex.map { case (point, index) =>
             (f"$name$index = $point%.5g", point.toDouble,
                 ChartTools.colorForSubseries(color, index, leaf.point._2.length))
           }

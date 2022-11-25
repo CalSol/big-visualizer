@@ -12,9 +12,9 @@ case class FloatArrayAggregate(
 
 class FloatArrayAggregator extends BTreeAggregator {
   override type NodeType = FloatArrayAggregate
-  override type LeafType = Seq[Float]
+  override type LeafType = Array[Float]
 
-  override def fromLeaves(data: Seq[(BTree.TimestampType, Seq[Float])]): FloatArrayAggregate = {
+  override def fromLeaves(data: Seq[(BTree.TimestampType, Array[Float])]): FloatArrayAggregate = {
     val allData = data.flatMap(_._2)
     FloatArrayAggregate(
       allData.min, allData.max,
