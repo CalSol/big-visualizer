@@ -6,6 +6,7 @@ import de.siegmar.fastcsv.reader.CsvReader
 
 import java.nio.file.Path
 import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.{IteratorHasAsScala, ListHasAsScala}
 import scala.util.Try
@@ -81,7 +82,8 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, mutable.ListBuffer[Float])]()
+  protected var currentElement: Option[(Long, mutable.ArrayBuffer[Float])] = None
+  protected val dataBuilder = mutable.ArrayBuffer[(Long, Array[Float])]()
   protected var arraySize: Int = 0
 
   class CellParser(index: Int) extends Parser {
@@ -91,17 +93,23 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       if (value.isEmpty) {
         return
       }
-      if (dataBuilder.isEmpty || dataBuilder.last._1 != time) {
-        if (dataBuilder.nonEmpty) {
-          arraySize = math.max(arraySize, dataBuilder.last._2.length)
-          require(dataBuilder.last._1 < time, s"data jumped back in time at $time")
+      if (currentElement.isEmpty || currentElement.get._1 != time) {
+        currentElement match {
+          case Some((currentTime, currentBuffer)) =>
+            arraySize = math.max(arraySize, currentBuffer.length)
+            require(currentTime < time, s"data jumped back in time at $time")
+            dataBuilder.append((currentTime, currentBuffer.toArray))
+            currentBuffer.clear()  // reuse the buffer for memory efficiency
+            currentElement = Some((time, currentBuffer))
+          case None =>
+            currentElement = Some((time, new mutable.ArrayBuffer[Float]()))
         }
-        dataBuilder.append((time, new mutable.ListBuffer[Float]()))
+
       }
-      if (dataBuilder.last._2.length != index) {
+      if (currentElement.get._2.length != index) {
         return  // assumption: arrays must be full - partial arrays are warned at the makeTree stage
       }
-      dataBuilder.last._2.append(value.toFloat)
+      currentElement.get._2.append(value.toFloat)
     }
 
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
