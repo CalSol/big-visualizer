@@ -82,7 +82,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
-  protected var currentElement: Option[(Long, mutable.ArrayBuffer[Float])] = None
+  protected var currentElement: Option[(Long, mutable.ArrayBuilder[Float])] = None
   protected val dataBuilder = mutable.ArrayBuffer[(Long, Array[Float])]()
   protected var arraySize: Int = 0
 
@@ -98,18 +98,18 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
           case Some((currentTime, currentBuffer)) =>
             arraySize = math.max(arraySize, currentBuffer.length)
             require(currentTime < time, s"data jumped back in time at $time")
-            dataBuilder.append((currentTime, currentBuffer.toArray))
+            dataBuilder.append((currentTime, currentBuffer.result()))
             currentBuffer.clear()  // reuse the buffer for memory efficiency
             currentElement = Some((time, currentBuffer))
           case None =>
-            currentElement = Some((time, new mutable.ArrayBuffer[Float]()))
+            currentElement = Some((time, Array.newBuilder[Float]))
         }
 
       }
       if (currentElement.get._2.length != index) {
         return  // assumption: arrays must be full - partial arrays are warned at the makeTree stage
       }
-      currentElement.get._2.append(value.toFloat)
+      currentElement.get._2.addOne(value.toFloat)
     }
 
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
@@ -118,7 +118,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
   override def makeTree: BTree[FloatArrayAggregator] = {
     val arrayData = dataBuilder.toSeq.flatMap {
       case (time, data) if data.length == arraySize =>
-        Some(time -> data.toArray)
+        Some(time -> data)
       case (time, data) =>
         println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
         None
