@@ -210,6 +210,7 @@ object CsvLoader {
         count += 1
       }
     }
+    println(f"loaded $path in $loadTime%.1f s")
 
     System.gc()
 
