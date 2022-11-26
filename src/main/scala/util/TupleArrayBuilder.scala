@@ -11,6 +11,8 @@ class TupleArrayBuilder[@specialized(Long) T1, @specialized T2](implicit t1: Cla
   val builder1 = Array.newBuilder[T1]
   val builder2 = Array.newBuilder[T2]
 
+  def length: Int = builder1.length
+
   def clear(): Unit = {
     builder1.clear()
     builder2.clear()
@@ -19,6 +21,11 @@ class TupleArrayBuilder[@specialized(Long) T1, @specialized T2](implicit t1: Cla
   def addOne(elem1: T1, elem2: T2): Unit = {
     builder1.addOne(elem1)
     builder2.addOne(elem2)
+  }
+
+  def addAll(elems1: Array[T1], elems2: Array[T2]): Unit = {
+    builder1.addAll(elems1)
+    builder2.addAll(elems2)
   }
 
   // Returns the TupleArray version of this. Further operations on this ArrayBuilder are undefined
@@ -35,12 +42,12 @@ class TupleArrayBuilder[@specialized(Long) T1, @specialized T2](implicit t1: Cla
  * Probably trades off some memory locality, but if the types were boxed and on the heap
  * then there might not have been much memory locality to begin with.
  */
-class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], array2: Array[T2])
+class TupleArray[@specialized(Long) T1, @specialized T2](protected val array1: Array[T1], protected val array2: Array[T2])
                                                         (implicit t1: ClassTag[T1], t2: ClassTag[T2]) {
   require(array1.length == array2.length)
 
-  def this() = {  // empty array constructor
-    this(Array[T1], Array[T2])
+  def this()(implicit t1: ClassTag[T1], t2: ClassTag[T2]) = {  // empty array constructor
+    this(Array[T1](), Array[T2]())
   }
 
   // Converts this to an Array[(T1, T2)], which loses any unboxing benefits
@@ -48,14 +55,23 @@ class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], arra
     array1 zip array2
   }
 
+  // Creates a builder initialized with the data in this array
+  def toBuilder: TupleArrayBuilder[T1, T2] = {
+    val builder = new TupleArrayBuilder[T1, T2]()
+    builder.addAll(array1, array2)
+    builder
+  }
+
   def length: Int = array1.length
   def isEmpty: Boolean = array1.isEmpty
   def nonEmpty: Boolean = array1.nonEmpty
 
-  // Same as Array[(T1, T2)].head._1 but without needing a tuple wrapper
+  // Same as Array[(T1, T2)].head._1 / ._2 but without needing a tuple wrapper
   def head_1: T1 = array1.head
-  // Same as Array[(T1, T2)].last._1 but without needing a tuple wrapper
+  def head_2: T2 = array2.head
+  // Same as Array[(T1, T2)].last._1 / ._2 but without needing a tuple wrapper
   def last_1: T1 = array1.last
+  def last_2: T2 = array2.last
 
   def tail: TupleArray[T1, T2] = {
     new TupleArray(array1.tail, array2.tail)
@@ -79,7 +95,7 @@ class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], arra
     outputBuilder.result()
   }
 
-  def map[V1](fn: (T1, T2) => V1): Array[V1] = {
+  def map[V1](fn: (T1, T2) => V1)(implicit v1: ClassTag[V1]): Array[V1] = {
     val outputBuilder = Array.newBuilder[V1]
     var i: Int = 0
     while (i < array1.length) {

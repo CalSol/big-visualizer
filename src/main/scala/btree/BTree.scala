@@ -40,13 +40,14 @@ sealed trait UntypedBTree {
  *
  * The nodeSize parameter is the maximum number of children it has ("order" / m in the Wikipedia page).
  */
-class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val nodeSize: Int) extends UntypedBTree {
+class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val nodeSize: Int)
+                                              (implicit t: ClassTag[AggregatorType#LeafType]) extends UntypedBTree {
   // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): AggregatorType#NodeType =
     aggregator.fromLeaves(data.toArraySlow.asInstanceOf[Seq[(BTree.TimestampType, this.aggregator.LeafType)]])
 
-  def aggregateFromNodes(data: TupleArray[(BTree.TimestampType, BTree.TimestampType), AggregatorType#NodeType]): AggregatorType#NodeType =
-    aggregator.fromNodes(data.toArraySlow.asInstanceOf[Seq[((BTree.TimestampType, BTree.TimestampType), this.aggregator.NodeType)]])
+  def aggregateFromNodes(data: Seq[((BTree.TimestampType, BTree.TimestampType), AggregatorType#NodeType)]): AggregatorType#NodeType =
+    aggregator.fromNodes(data.asInstanceOf[Seq[((BTree.TimestampType, BTree.TimestampType), this.aggregator.NodeType)]])
 
   protected var root: BTreeNode[AggregatorType] = new BTreeLeafNode(this)
   protected var internalLength: Long = 0
@@ -167,6 +168,7 @@ sealed abstract class BTreeNode[AggregatorType <: BTreeAggregator]
 
 // B-tree node that contains an array of leaves
 class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
+                                                      (implicit t: ClassTag[AggregatorType#LeafType])
     extends BTreeNode[AggregatorType] {
   protected[bigvis] var leaves = new TupleArray[BTree.TimestampType, AggregatorType#LeafType]()
   protected var internalNodeData: Option[AggregatorType#NodeType] = None  // intermediate node data
@@ -194,13 +196,14 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
 
     var currTime = internalMaxTime
     var remainingData = data
-    while (leaves.length < root.nodeSize && remainingData.nonEmpty) {
+    val leavesBuilder = leaves.toBuilder
+    while (leavesBuilder.length < root.nodeSize && remainingData.nonEmpty) {
       val dataTime = remainingData.head_1
       if (dataTime <= currTime) {  // TODO this should be an error? and support interleaved inserts?
         System.err.println(s"discarding point at $dataTime going backward in time")
       } else {
         currTime = dataTime
-        leaves.append(head)
+        leavesBuilder.addOne(remainingData.head_1, remainingData.head_2)
       }
       remainingData = remainingData.tail
     }
@@ -240,6 +243,7 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
 
 // B-tree node that contains an array of other nodes
 class BTreeIntermediateNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
+                                                              (implicit t: ClassTag[AggregatorType#LeafType])
     extends BTreeNode[AggregatorType] {
   protected[bigvis] var nodes = mutable.ArrayBuffer[BTreeNode[AggregatorType]]()
   protected var internalNodeData: Option[AggregatorType#NodeType] = None  // intermediate node data
