@@ -44,7 +44,7 @@ class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], arra
     array1 zip array2
   }
 
-  def filter[V1, V2](fn: (T1, T2) => Boolean): TupleArray[T1, T2] = {
+  def filter(fn: (T1, T2) => Boolean): TupleArray[T1, T2] = {
     // Imperative operations are much faster than something like zip/zipped:
     // https://stackoverflow.com/questions/59598239/why-is-zipped-faster-than-zip-in-scala
     val outputBuilder = new TupleArrayBuilder[T1, T2]()
