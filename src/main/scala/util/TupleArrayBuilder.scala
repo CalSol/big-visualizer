@@ -35,7 +35,8 @@ class TupleArrayBuilder[@specialized(Long) T1, @specialized T2](implicit t1: Cla
  * Probably trades off some memory locality, but if the types were boxed and on the heap
  * then there might not have been much memory locality to begin with.
  */
-class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], array2: Array[T2]) {
+class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], array2: Array[T2])
+                                                        (implicit t1: ClassTag[T1], t2: ClassTag[T2]) {
   require(array1.length == array2.length)
 
   // Converts this to an Array[(T1, T2)], which loses any unboxing benefits
@@ -43,15 +44,14 @@ class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], arra
     array1 zip array2
   }
 
-  def collect[V1, V2](pf: PartialFunction[(T1, T2), (V1, V2)])(implicit v1: ClassTag[V1], v2: ClassTag[V2]): TupleArray[V1, V2] = {
+  def filter[V1, V2](fn: (T1, T2) => Boolean): TupleArray[T1, T2] = {
     // Imperative operations are much faster than something like zip/zipped:
     // https://stackoverflow.com/questions/59598239/why-is-zipped-faster-than-zip-in-scala
-    val outputBuilder = new TupleArrayBuilder[V1, V2]()
+    val outputBuilder = new TupleArrayBuilder[T1, T2]()
     var i: Int = 0
     while (i < array1.length) {
-      if (pf.isDefinedAt(array1(i), array2(i))) {
-        val (result1, result2) = pf.apply(array1(i), array2(i))
-        outputBuilder.addOne(result1, result2)
+      if (fn(array1(i), array2(i))) {
+        outputBuilder.addOne(array1(i), array2(i))
       }
       i = i + 1
     }
