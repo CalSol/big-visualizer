@@ -215,9 +215,13 @@ object CsvLoader {
     System.gc()
 
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
-    dataBuilders.map { dataBuilder =>
+    val series = dataBuilders.map { dataBuilder =>
       status(s"inserting: ${dataBuilder.name}")
       BTreeSeries(dataBuilder.name, dataBuilder.makeTree)
     }
+
+    System.gc()
+
+    series
   }
 }

@@ -38,7 +38,8 @@ object Main extends JFXApp {
   val runtime = Runtime.getRuntime
   val memoryTimer = Timeline(Seq(
     KeyFrame(Duration(250), onFinished = (t: ActionEvent) => {
-      memoryLabel.text = f"${(runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024} MiB"
+      memoryLabel.text = f"${(runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024} MiB used / " +
+        f"${runtime.totalMemory() / 1024 / 1024} MiB total"
     })
   ))
   memoryTimer.setCycleCount(Timeline.Indefinite)
