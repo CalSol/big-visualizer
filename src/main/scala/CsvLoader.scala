@@ -2,6 +2,7 @@ package bigvis
 
 import btree._
 
+import bigvis.util.TupleArrayBuilder
 import de.siegmar.fastcsv.reader.CsvReader
 
 import java.nio.file.Path
@@ -42,19 +43,19 @@ class DummyParser(val name: String) extends Parser {
 class StringParser(val name: String) extends Parser with DataBuilder {
   override def toString: String = s"${getClass.getName}($name)"
 
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, String)]()
+  protected val dataBuilder = new TupleArrayBuilder[Long, String]()
 
   override def parseCell(time: Long, value: String): Unit = {
     if (value.isEmpty) {
       return
     }
-    dataBuilder.append((time, value))
+    dataBuilder.addOne(time, value)
   }
 
   override def getBuilder: DataBuilder = this
   override def makeTree: BTree[StringAggregator] = {
     val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(dataBuilder)
+    tree.appendAll(dataBuilder.result().toArraySlow)
     tree
   }
 }
@@ -63,19 +64,19 @@ class StringParser(val name: String) extends Parser with DataBuilder {
 class FloatParser(val name: String) extends Parser with DataBuilder {
   override def toString: String = s"${getClass.getName}($name)"
 
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, Float)]()
+  protected val dataBuilder = new TupleArrayBuilder[Long, Float]()
 
   override def parseCell(time: Long, value: String): Unit = {
     if (value.isEmpty) {
       return
     }
-    dataBuilder.append((time, value.toFloat))
+    dataBuilder.addOne(time, value.toFloat)
   }
 
   override def getBuilder: DataBuilder = this
   override def makeTree: BTree[FloatAggregator] = {
     val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(dataBuilder)
+    tree.appendAll(dataBuilder.result().toArraySlow)
     tree
   }
 }
@@ -83,7 +84,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
   protected var currentElement: Option[(Long, mutable.ArrayBuilder[Float])] = None
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, Array[Float])]()
+  protected val dataBuilder = new TupleArrayBuilder[Long, Array[Float]]()
   protected var arraySize: Int = 0
 
   class CellParser(index: Int) extends Parser {
@@ -98,7 +99,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
           case Some((currentTime, currentBuffer)) =>
             arraySize = math.max(arraySize, currentBuffer.length)
             require(currentTime < time, s"data jumped back in time at $time")
-            dataBuilder.append((currentTime, currentBuffer.result()))
+            dataBuilder.addOne(currentTime, currentBuffer.result())
             currentBuffer.clear()  // reuse the buffer for memory efficiency
             currentElement = Some((time, currentBuffer))
           case None =>
@@ -116,15 +117,14 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
   }
 
   override def makeTree: BTree[FloatArrayAggregator] = {
-    val arrayData = dataBuilder.toSeq.flatMap {
-      case (time, data) if data.length == arraySize =>
-        Some(time -> data)
-      case (time, data) =>
+    val arrayData = dataBuilder.result().filter { case (time, data) =>
+      if (data.length != arraySize) {
         println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
-        None
+      }
+      data.length == arraySize
     }
     val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(arrayData)
+    tree.appendAll(arrayData.toArraySlow)
     tree
   }
 }
@@ -203,7 +203,7 @@ object CsvLoader {
 
         val row = rawRow.getFields.asScala
         val time = (row.head.toDouble * 1000).toLong
-        (row.tail zip parsers).foreach { case (cell, parser) =>
+        (row.tail lazyZip parsers).foreach { case (cell, parser) =>
           parser.parseCell(time, cell)
         }
 
