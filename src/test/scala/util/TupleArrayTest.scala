@@ -12,12 +12,20 @@ class TupleArrayTest extends AnyFlatSpec with Matchers {
     val builder = new TupleArrayBuilder[Int, Int]()
     builder.addOne(0, 1)
     builder.addOne(2, 3)
-    builder.result().toArraySlow should equal(Seq((0, 1), (2, 3)))
+    val result = builder.result()
+    result.toArraySlow should equal(Seq((0, 1), (2, 3)))
+    result.length should equal(2)
+    result.isEmpty should equal(false)
+    result.nonEmpty should equal(true)
   }
 
   it should "work with empty arrays" in {
     val builder = new TupleArrayBuilder[Int, Int]()
-    builder.result().toArraySlow should equal(Seq())
+    val result = builder.result()
+    result.toArraySlow should equal(Seq())
+    result.length should equal(0)
+    result.isEmpty should equal(true)
+    result.nonEmpty should equal(false)
   }
 
   it should "filter" in {

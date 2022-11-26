@@ -39,9 +39,30 @@ class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], arra
                                                         (implicit t1: ClassTag[T1], t2: ClassTag[T2]) {
   require(array1.length == array2.length)
 
+  def this() = {  // empty array constructor
+    this(Array[T1], Array[T2])
+  }
+
   // Converts this to an Array[(T1, T2)], which loses any unboxing benefits
   def toArraySlow: Array[(T1, T2)] = {
     array1 zip array2
+  }
+
+  def length: Int = array1.length
+  def isEmpty: Boolean = array1.isEmpty
+  def nonEmpty: Boolean = array1.nonEmpty
+
+  // Same as Array[(T1, T2)].head._1 but without needing a tuple wrapper
+  def head_1: T1 = array1.head
+  // Same as Array[(T1, T2)].last._1 but without needing a tuple wrapper
+  def last_1: T1 = array1.last
+
+  def tail: TupleArray[T1, T2] = {
+    new TupleArray(array1.tail, array2.tail)
+  }
+
+  def ++(that: TupleArray[T1, T2]): TupleArray[T1, T2] = {
+    new TupleArray(array1 ++ that.array1, array2 ++ that.array2)
   }
 
   def filter(fn: (T1, T2) => Boolean): TupleArray[T1, T2] = {
@@ -56,5 +77,21 @@ class TupleArray[@specialized(Long) T1, @specialized T2](array1: Array[T1], arra
       i = i + 1
     }
     outputBuilder.result()
+  }
+
+  def map[V1](fn: (T1, T2) => V1): Array[V1] = {
+    val outputBuilder = Array.newBuilder[V1]
+    var i: Int = 0
+    while (i < array1.length) {
+      outputBuilder.addOne(fn(array1(i), array2(i)))
+      i = i + 1
+    }
+    outputBuilder.result()
+  }
+
+  def splitAt(index: Int): (TupleArray[T1, T2], TupleArray[T1, T2]) = {
+    val (array1Left, array1Right) = array1.splitAt(index)
+    val (array2Left, array2Right) = array2.splitAt(index)
+    (new TupleArray(array1Left, array2Left), new TupleArray(array1Right, array2Right))
   }
 }
