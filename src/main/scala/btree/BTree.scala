@@ -46,8 +46,8 @@ sealed trait UntypedBTree {
  */
 class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val leafSize: Int, val nodeSize: Int)
                                               (implicit t: ClassTag[AggregatorType#LeafType]) extends UntypedBTree {
-  // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): AggregatorType#NodeType =
+    // cast needed since it doesn't realize this.aggregator.LeafTime == AggregatorType#LeafType
     aggregator.fromLeaves(data.toArraySlow.asInstanceOf[Array[(BTree.TimestampType, this.aggregator.LeafType)]])
 
   def aggregateFromNodes(data: Seq[((BTree.TimestampType, BTree.TimestampType), AggregatorType#NodeType)]): AggregatorType#NodeType =
