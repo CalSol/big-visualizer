@@ -15,7 +15,7 @@ import scala.util.Try
 
 trait DataBuilder {
   def name: String
-  def makeTree: UntypedBTree
+  def makeTree(statusFn: Float => Unit): UntypedBTree
 }
 
 
@@ -35,7 +35,8 @@ class DummyParser(val name: String) extends Parser {
 
   override def getBuilder: DataBuilder = new DataBuilder {
     override def name: String = DummyParser.this.name
-    override def makeTree = throw new IllegalArgumentException("can't create tree from DummyParser")
+    override def makeTree(statusFn: Float => Unit) =
+      throw new IllegalArgumentException("can't create tree from DummyParser")
   }
 }
 
@@ -53,9 +54,9 @@ class StringParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
-  override def makeTree: BTree[StringAggregator] = {
+  override def makeTree(statusFn: Float => Unit): BTree[StringAggregator] = {
     val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(dataBuilder.result())
+    tree.appendAll(dataBuilder.result(), statusFn)
     tree
   }
 }
@@ -74,9 +75,9 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
-  override def makeTree: BTree[FloatAggregator] = {
+  override def makeTree(statusFn: Float => Unit): BTree[FloatAggregator] = {
     val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(dataBuilder.result())
+    tree.appendAll(dataBuilder.result(), statusFn)
     tree
   }
 }
@@ -116,7 +117,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
 
-  override def makeTree: BTree[FloatArrayAggregator] = {
+  override def makeTree(statusFn: Float => Unit): BTree[FloatArrayAggregator] = {
     val arrayData = dataBuilder.result().filter { case (time, data) =>
       if (data.length != arraySize) {
         println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
@@ -124,7 +125,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       data.length == arraySize
     }
     val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(arrayData)
+    tree.appendAll(arrayData, statusFn)
     tree
   }
 }
@@ -216,8 +217,8 @@ object CsvLoader {
 
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
     val series = dataBuilders.map { dataBuilder =>
-      status(s"inserting: ${dataBuilder.name}")
-      BTreeSeries(dataBuilder.name, dataBuilder.makeTree)
+      BTreeSeries(dataBuilder.name, dataBuilder.makeTree(pct =>
+        status(s"inserting: ${(pct * 100).toInt}% ${dataBuilder.name}")))
     }
 
     System.gc()

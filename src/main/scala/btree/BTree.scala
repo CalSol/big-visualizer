@@ -55,10 +55,12 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
   // Adds the data (as points of (timestamp, data), Data must be ordered, but only within itself
   // (it can overlap with existing points in the tree)
   // Data must not be empty.
-  def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): Unit = {
+  def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType], statusFn: Float => Unit): Unit = {
+    val dataLen = data.length
     var remainingData = data
     internalLength += remainingData.length
     while (remainingData.nonEmpty) {
+      statusFn((dataLen - remainingData.length) / dataLen.toFloat)
       remainingData = root.appendAll(remainingData)
       if (remainingData.nonEmpty) {  // split node and insert new root
         val leftNode = root
@@ -75,7 +77,7 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
   def appendAll(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): Unit = {
     val builder = new TupleArrayBuilder[BTree.TimestampType, AggregatorType#LeafType]()
     builder.addAll(data)
-    appendAll(builder.result())
+    appendAll(builder.result(), _ => ())
   }
 
   // Returns all the leaf points as a Seq[Tuple], losing unboxedness in the process
