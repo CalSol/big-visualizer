@@ -56,9 +56,8 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val l
   protected var root: BTreeNode[AggregatorType] = new BTreeLeafNode(this)
   protected var internalLength: Long = 0
 
-  // Adds the data (as points of (timestamp, data), Data must be ordered, but only within itself
-  // (it can overlap with existing points in the tree)
-  // Data must not be empty.
+  // Adds the data (as points of (timestamp, data)).
+  // Data must be ordered, but only within itself (it can overlap with existing points in the tree).
   def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType], statusFn: Float => Unit): Unit = {
     val dataLen = data.length
     var remainingData = data
