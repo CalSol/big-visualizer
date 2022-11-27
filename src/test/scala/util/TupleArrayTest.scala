@@ -108,4 +108,39 @@ class TupleArrayTest extends AnyFlatSpec with Matchers {
     builder.addAll(Seq((0, 1), (2, 3), (4, 5)))
     builder.result().map(_ + _) should equal(Seq(1, 5, 9))
   }
+
+  it should "concat" in {
+    val builder1 = new TupleArrayBuilder[Int, Int]()
+    builder1.addAll(Seq((0, 1), (2, 3), (4, 5)))
+    val builder2 = new TupleArrayBuilder[Int, Int]()
+    builder2.addAll(Seq((6, 7), (8, 9)))
+    val concat = builder1.result() ++ builder2.result()
+    concat.toArraySlow should equal(Seq((0, 1), (2, 3), (4, 5), (6, 7), (8, 9)))
+  }
+
+  it should "map, filter, concat with start and end index" in {
+    val builder = new TupleArrayBuilder[Int, Int]()
+    builder.addAll(Seq((0, 1), (2, 3), (4, 5)))
+    val result = builder.result()
+    val (first1, second1) = result.splitAt(1)
+    first1.map(_ + _) should equal(Seq(1))
+    first1.filter { case (_, _) => true }.toArraySlow should equal(Seq((0, 1)))
+    second1.map(_ + _) should equal(Seq(5, 9))
+    second1.filter { case (_, _) => true }.toArraySlow should equal(Seq((2, 3), (4, 5)))
+    (first1 ++ second1).toArraySlow should equal(Seq((0, 1), (2, 3), (4, 5)))
+
+    val (first0, second0) = result.splitAt(0)
+    first0.map(_ + _) should equal(Seq())
+    first0.filter { case (_, _) => true }.toArraySlow should equal(Seq())
+    second0.map(_ + _) should equal(Seq(1, 5, 9))
+    second0.filter { case (_, _) => true }.toArraySlow should equal(Seq((0, 1), (2, 3), (4, 5)))
+    (first0 ++ second0).toArraySlow should equal(Seq((0, 1), (2, 3), (4, 5)))
+
+    val (first3, second3) = result.splitAt(3)
+    first3.map(_ + _) should equal(Seq(1, 5, 9))
+    first3.filter { case (_, _) => true }.toArraySlow should equal(Seq((0, 1), (2, 3), (4, 5)))
+    second3.map(_ + _) should equal(Seq())
+    second3.filter { case (_, _) => true }.toArraySlow should equal(Seq())
+    (first3 ++ second3).toArraySlow should equal(Seq((0, 1), (2, 3), (4, 5)))
+  }
 }
