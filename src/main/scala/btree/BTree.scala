@@ -39,8 +39,12 @@ sealed trait UntypedBTree {
  * See https://en.wikipedia.org/wiki/B-tree
  *
  * The nodeSize parameter is the maximum number of children it has ("order" / m in the Wikipedia page).
+ * The leafSize parameter is the maximum node size for leaves, which can be different than nodeSize since
+ * leaf access may be more efficient.
+ * Nodes are split when they reach maximum size, so B-Trees constructed from append insertions will have
+ * most nodes of nodeSize/2 (and leaves of leafSize/2).
  */
-class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val nodeSize: Int)
+class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val leafSize: Int, val nodeSize: Int)
                                               (implicit t: ClassTag[AggregatorType#LeafType]) extends UntypedBTree {
   // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): AggregatorType#NodeType =
@@ -206,7 +210,7 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
     var currTime = internalMaxTime
     var remainingData = data
     val leavesBuilder = leaves.toBuilder
-    while (leavesBuilder.length < root.nodeSize && remainingData.nonEmpty) {
+    while (leavesBuilder.length < root.leafSize && remainingData.nonEmpty) {
       val dataTime = remainingData.head_1
       if (dataTime <= currTime) {  // TODO this should be an error? and support interleaved inserts?
         System.err.println(s"discarding point at $dataTime going backward in time")
@@ -227,8 +231,8 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
   }
 
   def split(): BTreeLeafNode[AggregatorType] = {
-    require(leaves.length == root.nodeSize, "can't split before at max size")
-    val (leftSplit, rightSplit) = leaves.splitAt(root.nodeSize / 2)
+    require(leaves.length == root.leafSize, "can't split before at max size")
+    val (leftSplit, rightSplit) = leaves.splitAt(root.leafSize / 2)
 
     // create right node
     val rightNode = new BTreeLeafNode(root)
@@ -246,7 +250,7 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
 
   def validate(): Boolean = {
     require(leaves.nonEmpty)  // TODO: validation fails on empty leaves
-    internalMinTime == leaves.head_1 && internalMaxTime == leaves.last_1 && leaves.length <= root.nodeSize &&
+    internalMinTime == leaves.head_1 && internalMaxTime == leaves.last_1 && leaves.length <= root.leafSize &&
         internalNodeData.get == root.aggregateFromLeaves(leaves)
   }
 }

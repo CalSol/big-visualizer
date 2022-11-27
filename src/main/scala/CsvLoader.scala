@@ -26,6 +26,7 @@ trait Parser {
 
 
 object Parser {
+  val BTREE_LEAF_SIZE = 64
   val BTREE_NODE_SIZE = 16
 }
 
@@ -55,7 +56,7 @@ class StringParser(val name: String) extends Parser with DataBuilder {
 
   override def getBuilder: DataBuilder = this
   override def makeTree(statusFn: Float => Unit): BTree[StringAggregator] = {
-    val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder.result(), statusFn)
     tree
   }
@@ -76,7 +77,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
   override def getBuilder: DataBuilder = this
   override def makeTree(statusFn: Float => Unit): BTree[FloatAggregator] = {
-    val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder.result(), statusFn)
     tree
   }
@@ -124,7 +125,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       }
       data.length == arraySize
     }
-    val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
     tree.appendAll(arrayData, statusFn)
     tree
   }

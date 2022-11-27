@@ -8,10 +8,13 @@ import org.scalatest.matchers.should.Matchers
 class BTreeTest extends AnyFlatSpec with Matchers {
   behavior of "BTree"
 
+  val leafSize = 4
+  val nodeSize = 4
+
   it should "push nodeSize items" in {
     val dataset: Seq[(Long, Float)] = (0 until 4) map {i => (i, i.toFloat)}
 
-    val tree = new BTree(FloatAggregator.aggregator, 4)
+    val tree = new BTree(FloatAggregator.aggregator, leafSize, nodeSize)
     tree.appendAll(dataset)
     tree.toSeqSlow should be(dataset)
     tree.minTime should be(0)
@@ -23,7 +26,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
   it should "push nodeSize + 1 items" in {
     val dataset: Seq[(Long, Float)] = (0 until 5) map {i => (i, i.toFloat)}
 
-    val tree = new BTree(FloatAggregator.aggregator, 4)
+    val tree = new BTree(FloatAggregator.aggregator, leafSize, nodeSize)
     tree.appendAll(dataset)
     tree.toSeqSlow should be(dataset)
     tree.minTime should be(0)
@@ -36,7 +39,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     // leaves would be 2, 2, 2, 4
     val dataset: Seq[(Long, Float)] = (0 until 10) map {i => (i, i.toFloat)}
 
-    val tree = new BTree(FloatAggregator.aggregator, 4)
+    val tree = new BTree(FloatAggregator.aggregator, leafSize, nodeSize)
     tree.appendAll(dataset)
     tree.toSeqSlow should be(dataset)
     tree.minTime should be(0)
@@ -55,7 +58,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     // leaves would be 2 (2, 2), 2 (2, 2), 2 (2, 2), 4 (2, 2, 2, 4)
     val dataset: Seq[(Long, Float)] = (0 until 22) map {i => (i, i.toFloat)}
 
-    val tree = new BTree(FloatAggregator.aggregator, 4)
+    val tree = new BTree(FloatAggregator.aggregator, leafSize, nodeSize)
     tree.appendAll(dataset)
     tree.toSeqSlow should be(dataset)
     tree.minTime should be(0)
@@ -75,7 +78,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     // so we have a typical tree of 16*8*8, plus 8*8 nodes on rightmost second level, plus 8 nodes on rightmost third level
     val dataset: Seq[(Long, Float)] = (0 until (16*8*8 + 8*8 + 8)) map {i => (i, i.toFloat)}
 
-    val tree = new BTree(FloatAggregator.aggregator, 16)
+    val tree = new BTree(FloatAggregator.aggregator, 16, 16)
     tree.appendAll(dataset)
     tree.toSeqSlow should be(dataset)
     tree.maxDepth should be(3)
@@ -98,7 +101,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     (105, 8), (120, 9),
     (121, 10), (122, 11), (123, 12), (124, 13)
   )
-  val datasetTree = new BTree(FloatAggregator.aggregator, 4)
+  val datasetTree = new BTree(FloatAggregator.aggregator, leafSize, nodeSize)
   datasetTree.appendAll(dataset)
 
   it should "have a correct dataset tree" in {
