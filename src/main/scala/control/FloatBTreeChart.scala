@@ -12,11 +12,11 @@ import scalafx.scene.paint.Color
 // charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
 // custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
 class FloatBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
-    extends BaseBTreeChart(parent) with MultiDatasetBTreeChart[FloatAggregator]
-        with CachedSectionedMultiDatasetBTreeChart[FloatAggregator]
+    extends BaseBTreeChart(parent) with MultiDatasetBTreeChart[FloatAggregator.type]
+        with CachedSectionedMultiDatasetBTreeChart[FloatAggregator.type]
         with CursorBTreeChart {
-  override protected val aggregatorType: FloatAggregator = FloatAggregator.aggregator
-  override protected def getTreeValueLimits(tree: BTree[FloatAggregator]): (Double, Double) = {
+  override protected val aggregatorType: FloatAggregator.type = FloatAggregator
+  override protected def getTreeValueLimits(tree: BTree[FloatAggregator.type]): (Double, Double) = {
     (tree.rootData.min, tree.rootData.max)
   }
   override def getCursorData(scale: ChartParameters, xPos: TimestampType): Seq[(String, Double, Color)] = {
@@ -24,10 +24,10 @@ class FloatBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
 
     datasets.toSeq.flatMap { case (name, (tree, color)) =>
       cachedSections(name).getClosestValue(xPos, tolerance).map {
-        case leaf: BTreeLeaf[FloatAggregator] =>
+        case leaf: BTreeLeaf[FloatAggregator.type] =>
           val value = leaf.point._2
           (f"$name = $value%.5g", value, color)
-        case aggr: BTreeAggregate[FloatAggregator] =>
+        case aggr: BTreeAggregate[FloatAggregator.type] =>
           val average = aggr.nodeData.sum / aggr.nodeData.count
           (f"$name = ($average%.5g)", average, color)
       }

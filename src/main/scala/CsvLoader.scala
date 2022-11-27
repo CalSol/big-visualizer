@@ -55,8 +55,8 @@ class StringParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
-  override def makeTree(statusFn: Float => Unit): BTree[StringAggregator] = {
-    val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
+  override def makeTree(statusFn: Float => Unit): BTree[StringAggregator.type] = {
+    val tree = new BTree(StringAggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder.result(), statusFn)
     tree
   }
@@ -76,8 +76,8 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
   }
 
   override def getBuilder: DataBuilder = this
-  override def makeTree(statusFn: Float => Unit): BTree[FloatAggregator] = {
-    val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
+  override def makeTree(statusFn: Float => Unit): BTree[FloatAggregator.type] = {
+    val tree = new BTree(FloatAggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
     tree.appendAll(dataBuilder.result(), statusFn)
     tree
   }
@@ -118,14 +118,14 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
 
-  override def makeTree(statusFn: Float => Unit): BTree[FloatArrayAggregator] = {
+  override def makeTree(statusFn: Float => Unit): BTree[FloatArrayAggregator.type] = {
     val arrayData = dataBuilder.result().filter { case (time, data) =>
       if (data.length != arraySize) {
         println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
       }
       data.length == arraySize
     }
-    val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
+    val tree = new BTree(FloatArrayAggregator, Parser.BTREE_LEAF_SIZE, Parser.BTREE_NODE_SIZE)
     tree.appendAll(arrayData, statusFn)
     tree
   }

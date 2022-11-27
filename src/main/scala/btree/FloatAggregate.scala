@@ -10,7 +10,7 @@ case class FloatAggregate(
   def mean: Float = sum / count
 }
 
-class FloatAggregator extends BTreeAggregator {
+object FloatAggregator extends BTreeAggregator {
   override type NodeType = FloatAggregate
   override type LeafType = Float
 
@@ -28,8 +28,4 @@ class FloatAggregator extends BTreeAggregator {
       allNodes.map(_.count).sum, allNodes.map(_.sum).sum
     )
   }
-}
-
-object FloatAggregator {
-  val aggregator = new FloatAggregator()
 }

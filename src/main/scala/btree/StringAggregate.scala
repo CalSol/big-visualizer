@@ -6,7 +6,7 @@ case class StringAggregate(
                            summary: Option[String],
                          )
 
-class StringAggregator extends BTreeAggregator {
+object StringAggregator extends BTreeAggregator {
   override type NodeType = StringAggregate
   override type LeafType = String
 
@@ -25,8 +25,4 @@ class StringAggregator extends BTreeAggregator {
       case _ => StringAggregate(allNodes.map(_.count).sum, None)
     }
   }
-}
-
-object StringAggregator {
-  val aggregator = new StringAggregator()
 }
