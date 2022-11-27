@@ -55,7 +55,7 @@ class StringParser(val name: String) extends Parser with DataBuilder {
   override def getBuilder: DataBuilder = this
   override def makeTree: BTree[StringAggregator] = {
     val tree = new BTree(StringAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(dataBuilder.result().toArraySlow)
+    tree.appendAll(dataBuilder.result())
     tree
   }
 }
@@ -76,7 +76,7 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
   override def getBuilder: DataBuilder = this
   override def makeTree: BTree[FloatAggregator] = {
     val tree = new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(dataBuilder.result().toArraySlow)
+    tree.appendAll(dataBuilder.result())
     tree
   }
 }
@@ -124,7 +124,7 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       data.length == arraySize
     }
     val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
-    tree.appendAll(arrayData.toArraySlow)
+    tree.appendAll(arrayData)
     tree
   }
 }

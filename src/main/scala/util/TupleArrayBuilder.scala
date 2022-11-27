@@ -28,6 +28,12 @@ class TupleArrayBuilder[@specialized(Long) T1, @specialized T2](implicit t1: Cla
     builder2.addAll(elems2)
   }
 
+  // Alternative (less efficient) version of addAll that uses Seq of Tuples
+  def addAll(elems: Seq[(T1, T2)]): Unit = {
+    builder1.addAll(elems.map(_._1))
+    builder2.addAll(elems.map(_._2))
+  }
+
   // Returns the TupleArray version of this. Further operations on this ArrayBuilder are undefined
   // except clear().
   def result(): TupleArray[T1, T2] = {
@@ -42,7 +48,7 @@ class TupleArrayBuilder[@specialized(Long) T1, @specialized T2](implicit t1: Cla
  * Probably trades off some memory locality, but if the types were boxed and on the heap
  * then there might not have been much memory locality to begin with.
  */
-class TupleArray[@specialized(Long) T1, @specialized T2](protected val array1: Array[T1], protected val array2: Array[T2])
+class TupleArray[@specialized(Long) T1, @specialized T2](val array1: Array[T1], val array2: Array[T2])
                                                         (implicit t1: ClassTag[T1], t2: ClassTag[T2]) {
   require(array1.length == array2.length)
 

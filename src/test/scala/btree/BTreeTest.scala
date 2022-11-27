@@ -44,7 +44,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.maxDepth should be(2)
     tree.validate() should be (true)
 
-    tree.appendAll(Seq((dataset.length, dataset.length.toFloat)))
+    tree.appendAll(Seq((dataset.length.toLong, dataset.length.toFloat)))
     tree.minTime should be(0)
     tree.maxTime should be(10)
     tree.maxDepth should be(3)
@@ -63,7 +63,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.maxDepth should be(3)
     tree.validate() should be (true)
 
-    tree.appendAll(Seq((dataset.length, dataset.length.toFloat)))
+    tree.appendAll(Seq((dataset.length.toLong, dataset.length.toFloat)))
     tree.minTime should be(0)
     tree.maxTime should be(22)
     tree.maxDepth should be(4)
@@ -81,7 +81,7 @@ class BTreeTest extends AnyFlatSpec with Matchers {
     tree.maxDepth should be(3)
     tree.validate() should be (true)
 
-    tree.appendAll(Seq((dataset.length, dataset.length.toFloat)))
+    tree.appendAll(Seq((dataset.length.toLong, dataset.length.toFloat)))
     tree.maxDepth should be(4)
     tree.validate() should be (true)
   }

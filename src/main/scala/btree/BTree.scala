@@ -1,7 +1,7 @@
 package bigvis
 package btree
 
-import bigvis.util.TupleArray
+import bigvis.util.{TupleArray, TupleArrayBuilder}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -44,7 +44,7 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
                                               (implicit t: ClassTag[AggregatorType#LeafType]) extends UntypedBTree {
   // TODO debug why the type checker chokes without explicit casts
   def aggregateFromLeaves(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): AggregatorType#NodeType =
-    aggregator.fromLeaves(data.toArraySlow.asInstanceOf[Seq[(BTree.TimestampType, this.aggregator.LeafType)]])
+    aggregator.fromLeaves(data.toArraySlow.asInstanceOf[Array[(BTree.TimestampType, this.aggregator.LeafType)]])
 
   def aggregateFromNodes(data: Seq[((BTree.TimestampType, BTree.TimestampType), AggregatorType#NodeType)]): AggregatorType#NodeType =
     aggregator.fromNodes(data.asInstanceOf[Seq[((BTree.TimestampType, BTree.TimestampType), this.aggregator.NodeType)]])
@@ -69,6 +69,13 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
         root = newRoot
       }
     }
+  }
+
+  // Alternative (less efficient) version of appendAll that uses Seq of Tuples
+  def appendAll(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): Unit = {
+    val builder = new TupleArrayBuilder[BTree.TimestampType, AggregatorType#LeafType]()
+    builder.addAll(data)
+    appendAll(builder.result())
   }
 
   // Returns all the leaf points as a Seq[Tuple], losing unboxedness in the process
@@ -207,6 +214,7 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
       }
       remainingData = remainingData.tail
     }
+    leaves = leavesBuilder.result()
 
     // update this node
     internalMinTime = leaves.head_1
