@@ -1,6 +1,8 @@
 package bigvis
 package btree
 
+import bigvis.util.{TupleArray, TupleArrayBuilder}
+
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
@@ -37,11 +39,16 @@ sealed trait UntypedBTree {
  * See https://en.wikipedia.org/wiki/B-tree
  *
  * The nodeSize parameter is the maximum number of children it has ("order" / m in the Wikipedia page).
+ * The leafSize parameter is the maximum node size for leaves, which can be different than nodeSize since
+ * leaf access may be more efficient.
+ * Nodes are split when they reach maximum size, so B-Trees constructed from append insertions will have
+ * most nodes of nodeSize/2 (and leaves of leafSize/2).
  */
-class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val nodeSize: Int) extends UntypedBTree {
-  // TODO debug why the type checker chokes without explicit casts
-  def aggregateFromLeaves(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): AggregatorType#NodeType =
-    aggregator.fromLeaves(data.asInstanceOf[Seq[(BTree.TimestampType, this.aggregator.LeafType)]])
+class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val leafSize: Int, val nodeSize: Int)
+                                              (implicit t: ClassTag[AggregatorType#LeafType]) extends UntypedBTree {
+  def aggregateFromLeaves(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): AggregatorType#NodeType =
+    // cast needed since it doesn't realize this.aggregator.LeafTime == AggregatorType#LeafType
+    aggregator.fromLeaves(data.toArraySlow.asInstanceOf[Array[(BTree.TimestampType, this.aggregator.LeafType)]])
 
   def aggregateFromNodes(data: Seq[((BTree.TimestampType, BTree.TimestampType), AggregatorType#NodeType)]): AggregatorType#NodeType =
     aggregator.fromNodes(data.asInstanceOf[Seq[((BTree.TimestampType, BTree.TimestampType), this.aggregator.NodeType)]])
@@ -49,13 +56,14 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
   protected var root: BTreeNode[AggregatorType] = new BTreeLeafNode(this)
   protected var internalLength: Long = 0
 
-  // Adds the data (as points of (timestamp, data), Data must be ordered, but only within itself
-  // (it can overlap with existing points in the tree)
-  // Data must not be empty.
-  def appendAll(data: IterableOnce[(BTree.TimestampType, AggregatorType#LeafType)]): Unit = {
-    var remainingData = data.iterator.toSeq
+  // Adds the data (as points of (timestamp, data)).
+  // Data must be ordered, but only within itself (it can overlap with existing points in the tree).
+  def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType], statusFn: Float => Unit): Unit = {
+    val dataLen = data.length
+    var remainingData = data
     internalLength += remainingData.length
     while (remainingData.nonEmpty) {
+      statusFn((dataLen - remainingData.length) / dataLen.toFloat)
       remainingData = root.appendAll(remainingData)
       if (remainingData.nonEmpty) {  // split node and insert new root
         val leftNode = root
@@ -68,15 +76,23 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
     }
   }
 
-  // Returns all the leaf points as a seq
-  def toSeq: Seq[(BTree.TimestampType, AggregatorType#LeafType)] = {
-    toLeafChain.flatMap(_.leaves)
+  // Alternative (less efficient) version of appendAll that uses Seq of Tuples
+  def appendAll(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): Unit = {
+    val builder = new TupleArrayBuilder[BTree.TimestampType, AggregatorType#LeafType]()
+    builder.addAll(data)
+    appendAll(builder.result(), _ => ())
   }
 
+  // Returns all the leaf points as a Seq[Tuple], losing unboxedness in the process
+  def toSeqSlow: Seq[(BTree.TimestampType, AggregatorType#LeafType)] = {
+    toLeafChain.map(_.leaves).reduce(_ ++ _).toArraySlow
+  }
+
+  // Returns all the leaf nodes as they currently are. Leaf nodes are mutable, so the result may not stay valid.
   protected def toLeafChain: Seq[BTreeLeafNode[AggregatorType]] = {
     def traverse(node: BTreeNode[AggregatorType]): Seq[BTreeLeafNode[AggregatorType]] = node match {
       case node: BTreeIntermediateNode[AggregatorType] => node.nodes.toSeq flatMap(traverse)
-      case node: BTreeLeafNode[AggregatorType] => Seq(node)
+      case node: BTreeLeafNode[AggregatorType] => Array(node)
     }
     traverse(root)
   }
@@ -103,10 +119,10 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
       } else {
         node match {
           case node: BTreeIntermediateNode[AggregatorType] => node.nodes.toSeq.flatMap(traverse)
-          case node: BTreeLeafNode[AggregatorType] => node.leaves.toSeq.filter { case (time, data) =>
+          case node: BTreeLeafNode[AggregatorType] => node.leaves.filter { case (time, data) =>
             time >= startTime && time <= endTime
-          }.map {
-            new BTreeLeaf[AggregatorType](_)
+          }.map { case (time, data) =>
+            new BTreeLeaf[AggregatorType]((time, data))
           }
         }
       }
@@ -153,7 +169,7 @@ sealed abstract class BTreeNode[AggregatorType <: BTreeAggregator]
   // responsibility that the right data gets to the right sub-node
   // Returns any data that couldn't be added, because the node is full, as a signal to the caller to split
   // the called node
-  def appendAll(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): Seq[(BTree.TimestampType, AggregatorType#LeafType)]
+  def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): TupleArray[BTree.TimestampType, AggregatorType#LeafType]
 
   // Splits this node, updating this node and returning the split off node.
   // This node contains the lower half of timestamps, and the split off node contains the upper half.
@@ -164,8 +180,9 @@ sealed abstract class BTreeNode[AggregatorType <: BTreeAggregator]
 
 // B-tree node that contains an array of leaves
 class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
+                                                      (implicit t: ClassTag[AggregatorType#LeafType])
     extends BTreeNode[AggregatorType] {
-  protected[bigvis] var leaves = mutable.ArrayBuffer[(BTree.TimestampType, AggregatorType#LeafType)]()
+  protected[bigvis] var leaves = new TupleArray[BTree.TimestampType, AggregatorType#LeafType]()
   protected var internalNodeData: Option[AggregatorType#NodeType] = None  // intermediate node data
   override def nodeData: AggregatorType#NodeType = internalNodeData.get
 
@@ -181,62 +198,65 @@ class BTreeLeafNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorTyp
     internalMaxTime
   }
 
-  def appendAll(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): Seq[(BTree.TimestampType, AggregatorType#LeafType)] = {
+  def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): TupleArray[BTree.TimestampType, AggregatorType#LeafType] = {
     // Insert data until full
     // When full, split the node in the parent, recursively as needed, and delegate continued data adding
     require(data.nonEmpty)  // empty appends handled at BTree level
-    if (data.head._1 <= internalMaxTime) {  // TODO this should be an error?
-      System.err.println(s"discarding points ${data.size} going backward in time")
+    if (data.head_1 <= internalMaxTime) {  // TODO this should be an error?
+      System.err.println(s"discarding points ${data.length} going backward in time")
     }
 
     var currTime = internalMaxTime
     var remainingData = data
-    while (leaves.length < root.nodeSize && remainingData.nonEmpty) {
-      val head = remainingData.head
-      if (head._1 <= currTime) {  // TODO this should be an error? and support interleaved inserts?
-        System.err.println(s"discarding point $head going backward in time")
+    val leavesBuilder = leaves.toBuilder
+    while (leavesBuilder.length < root.leafSize && remainingData.nonEmpty) {
+      val dataTime = remainingData.head_1
+      if (dataTime <= currTime) {  // TODO this should be an error? and support interleaved inserts?
+        System.err.println(s"discarding point at $dataTime going backward in time")
       } else {
-        currTime = head._1
-        leaves.append(head)
+        currTime = dataTime
+        leavesBuilder.addOne(remainingData.head_1, remainingData.head_2)
       }
       remainingData = remainingData.tail
     }
+    leaves = leavesBuilder.result()
 
     // update this node
-    internalMinTime = leaves.head._1
-    internalMaxTime = leaves.last._1
-    internalNodeData = Some(root.aggregateFromLeaves(leaves.toSeq))
+    internalMinTime = leaves.head_1
+    internalMaxTime = leaves.last_1
+    internalNodeData = Some(root.aggregateFromLeaves(leaves))
 
     remainingData  // return any remaining data - indicates this node needs to be split
   }
 
   def split(): BTreeLeafNode[AggregatorType] = {
-    require(leaves.length == root.nodeSize, "can't split before at max size")
-    val (leftSplit, rightSplit) = leaves.splitAt(root.nodeSize / 2)
+    require(leaves.length == root.leafSize, "can't split before at max size")
+    val (leftSplit, rightSplit) = leaves.splitAt(root.leafSize / 2)
 
     // create right node
     val rightNode = new BTreeLeafNode(root)
-    val rightLeftover = rightNode.appendAll(rightSplit.toSeq)
+    val rightLeftover = rightNode.appendAll(rightSplit)
     require(rightLeftover.isEmpty, "split should not overflow")
 
     // update this node
     leaves = leftSplit
-    internalMinTime = leaves.head._1
-    internalMaxTime = leaves.last._1
-    internalNodeData = Some(root.aggregateFromLeaves(leaves.toSeq))
+    internalMinTime = leaves.head_1
+    internalMaxTime = leaves.last_1
+    internalNodeData = Some(root.aggregateFromLeaves(leaves))
 
     rightNode
   }
 
   def validate(): Boolean = {
     require(leaves.nonEmpty)  // TODO: validation fails on empty leaves
-    internalMinTime == leaves.head._1 && internalMaxTime == leaves.last._1 && leaves.size <= root.nodeSize &&
-        internalNodeData.get == root.aggregateFromLeaves(leaves.toSeq)
+    internalMinTime == leaves.head_1 && internalMaxTime == leaves.last_1 && leaves.length <= root.leafSize &&
+        internalNodeData.get == root.aggregateFromLeaves(leaves)
   }
 }
 
 // B-tree node that contains an array of other nodes
 class BTreeIntermediateNode[AggregatorType <: BTreeAggregator](root: BTree[AggregatorType])
+                                                              (implicit t: ClassTag[AggregatorType#LeafType])
     extends BTreeNode[AggregatorType] {
   protected[bigvis] var nodes = mutable.ArrayBuffer[BTreeNode[AggregatorType]]()
   protected var internalNodeData: Option[AggregatorType#NodeType] = None  // intermediate node data
@@ -254,13 +274,13 @@ class BTreeIntermediateNode[AggregatorType <: BTreeAggregator](root: BTree[Aggre
     intermalMaxTime
   }
 
-  def appendAll(data: Seq[(BTree.TimestampType, AggregatorType#LeafType)]): Seq[(BTree.TimestampType, AggregatorType#LeafType)] = {
+  def appendAll(data: TupleArray[BTree.TimestampType, AggregatorType#LeafType]): TupleArray[BTree.TimestampType, AggregatorType#LeafType] = {
     // Insert data until full
     // When full, split the node in the parent, recursively as needed
     if (nodes.isEmpty) {
       nodes.append(new BTreeLeafNode(root))
     }
-    require(data.head._1 >= intermalMaxTime, "TODO: support insertions not at end")  // I'm a lazy duck
+    require(data.head_1 >= intermalMaxTime, "TODO: support insertions not at end")  // I'm a lazy duck
 
     var remainingData = nodes.last.appendAll(data)
     while (remainingData.nonEmpty && nodes.length < root.nodeSize) {  // while this node can still do useful work
@@ -277,7 +297,7 @@ class BTreeIntermediateNode[AggregatorType <: BTreeAggregator](root: BTree[Aggre
       ((node.minTime, node.maxTime), node.nodeData)
     }))
 
-    remainingData.toSeq
+    remainingData
   }
 
 
@@ -292,7 +312,6 @@ class BTreeIntermediateNode[AggregatorType <: BTreeAggregator](root: BTree[Aggre
     internalNodeData = Some(root.aggregateFromNodes(nodes.toSeq.map { node =>
       ((node.minTime, node.maxTime), node.nodeData)
     }))
-
   }
 
   def split(): BTreeIntermediateNode[AggregatorType] = {

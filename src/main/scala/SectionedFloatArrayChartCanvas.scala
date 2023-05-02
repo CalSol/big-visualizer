@@ -17,14 +17,14 @@ class SectionedFloatArrayChartCanvas extends BaseChartCanvas {
 
   // Actual rendering functions, returns rendering time
   protected def drawChart(gc: GraphicsContext, scale: ChartParameters,
-                          sectionedData: SectionedData[FloatArrayAggregator], chartColor: Color): Double = {
+                          sectionedData: SectionedData[FloatArrayAggregator.type], chartColor: Color): Double = {
     gc.save()
     gc.setFill(chartColor)
     gc.setStroke(chartColor)
 
     val renderTime = timeExec {
       sectionedData.data.foreach { section =>
-        SectionedChartCanvasUtils.foreachSectionByNodeType[FloatArrayAggregator](section, { aggregateSection =>
+        SectionedChartCanvasUtils.foreachSectionByNodeType[FloatArrayAggregator.type](section, { aggregateSection =>
           val bottomTopMeanPoints = aggregateSection.map { node =>
             (scale.xValToPos((node.maxTime + node.minTime) / 2),
                 scale.yValToPos(node.nodeData.min),
@@ -84,7 +84,7 @@ class SectionedFloatArrayChartCanvas extends BaseChartCanvas {
   }
 
   def draw(scale: ChartParameters,
-           charts: Seq[(String, SectionedData[FloatArrayAggregator], Color)]): Unit = {
+           charts: Seq[(String, SectionedData[FloatArrayAggregator.type], Color)]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)

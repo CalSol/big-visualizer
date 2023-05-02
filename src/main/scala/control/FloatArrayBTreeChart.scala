@@ -8,11 +8,11 @@ import scalafx.scene.paint.Color
 
 
 class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
-    extends BaseBTreeChart(parent) with MultiDatasetBTreeChart[FloatArrayAggregator]
-        with CachedSectionedMultiDatasetBTreeChart[FloatArrayAggregator]
+    extends BaseBTreeChart(parent) with MultiDatasetBTreeChart[FloatArrayAggregator.type]
+        with CachedSectionedMultiDatasetBTreeChart[FloatArrayAggregator.type]
         with CursorBTreeChart {
-  override protected val aggregatorType: FloatArrayAggregator = FloatArrayAggregator.aggregator
-  override protected def getTreeValueLimits(tree: BTree[FloatArrayAggregator]): (Double, Double) = {
+  override protected val aggregatorType: FloatArrayAggregator.type = FloatArrayAggregator
+  override protected def getTreeValueLimits(tree: BTree[FloatArrayAggregator.type]): (Double, Double) = {
     (tree.rootData.min, tree.rootData.max)
   }
   override def getCursorData(scale: ChartParameters, xPos: TimestampType): Seq[(String, Double, Color)] = {
@@ -20,12 +20,12 @@ class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
 
     datasets.toSeq.flatMap { case (name, (tree, color)) =>
       cachedSections(name).getClosestValue(xPos, tolerance).map {
-        case leaf: BTreeLeaf[FloatArrayAggregator] =>
+        case leaf: BTreeLeaf[FloatArrayAggregator.type] =>
           leaf.point._2.toSeq.zipWithIndex.map { case (point, index) =>
             (f"$name$index = $point%.5g", point.toDouble,
                 ChartTools.colorForSubseries(color, index, leaf.point._2.length))
           }
-        case aggr: BTreeAggregate[FloatArrayAggregator] =>
+        case aggr: BTreeAggregate[FloatArrayAggregator.type] =>
           val average = aggr.nodeData.sum / aggr.nodeData.count
           Seq((f"$name = ($average%.5g)", average.toDouble, color))
       }

@@ -79,15 +79,15 @@ object BTreeChart {  // rendering properties
 
   def fromTree(parent: SharedAxisCharts, series: BTreeSeries): BaseBTreeChart = series.tree match {
     // TODO figure out a clean way around type erasure
-    case tree: BTree[FloatAggregator] @unchecked if tree.aggregatorType == FloatAggregator.aggregator =>
+    case tree: BTree[FloatAggregator.type] @unchecked if tree.aggregatorType == FloatAggregator =>
       val chart = new FloatBTreeChart(parent, 5500)  // TODO customizable timeBreak
       chart.addDataset(series)
       chart
-    case tree: BTree[FloatArrayAggregator]@unchecked if tree.aggregatorType == FloatArrayAggregator.aggregator =>
+    case tree: BTree[FloatArrayAggregator.type]@unchecked if tree.aggregatorType == FloatArrayAggregator =>
       val chart = new FloatArrayBTreeChart(parent, 5500) // TODO customizable timeBreak
       chart.addDataset(series)
       chart
-    case tree: BTree[StringAggregator] @unchecked if tree.aggregatorType == StringAggregator.aggregator =>
+    case tree: BTree[StringAggregator.type] @unchecked if tree.aggregatorType == StringAggregator =>
       ???
     case tree => throw new IllegalArgumentException(s"bad tree $tree of type ${tree.getClass.getName}")
   }

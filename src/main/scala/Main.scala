@@ -2,23 +2,32 @@ package bigvis
 
 import control.{DataTreeView, PerfTreeView, SharedAxisCharts}
 
+import javafx.event.{ActionEvent, EventHandler}
+import scalafx.animation.{KeyFrame, Timeline}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.scene.Scene
 import scalafx.scene.control.{Label, SplitPane}
 import scalafx.scene.layout.VBox.setVgrow
-import scalafx.scene.layout.{Priority, VBox}
+import scalafx.scene.layout.{HBox, Priority, VBox}
 import scalafx.stage.Stage
+import scalafx.util.Duration
 
 
 object Main extends JFXApp {
   val perfTree = new PerfTreeView()
+  val memoryLabel = new Label(s"(memory)")
   val perfStage = new Stage() {
     title = "Performance"
     scene = new Scene {
       root = new VBox {
         children = Seq(
-          new Label(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}"),
+          new HBox {
+            children = Seq(
+              new Label(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}"),
+              memoryLabel
+            )
+          },
           perfTree
         )
       }
@@ -26,6 +35,15 @@ object Main extends JFXApp {
   }
   perfStage.show()
 
+  val runtime = Runtime.getRuntime
+  val memoryTimer = Timeline(Seq(
+    KeyFrame(Duration(250), onFinished = (t: ActionEvent) => {
+      memoryLabel.text = f"${(runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024} MiB used / " +
+        f"${runtime.totalMemory() / 1024 / 1024} MiB total"
+    })
+  ))
+  memoryTimer.setCycleCount(Timeline.Indefinite)
+  memoryTimer.play()
 
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
