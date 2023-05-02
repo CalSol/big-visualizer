@@ -1,7 +1,8 @@
 package bigvis
 
-import btree.{BTreeAggregate, BTreeData, BTreeLeaf, FloatAggregator}
 import control._
+
+import scalafx.scene.paint.Color
 
 import scala.collection.mutable
 
@@ -50,7 +51,7 @@ object CursorCanvas {
    * Repeat until there are no more positions to be merged (fixed-point algorithm).
    */
   def spreadPositions(originalPositions: Seq[Double], spread: Double, min: Double, max: Double): Seq[Double] = {
-    require(originalPositions.sorted == originalPositions, "TODO handle non-sorted input")
+    require(originalPositions.sorted == originalPositions, f"got non-sorted input $originalPositions")
 
     var positions = originalPositions.map { pos =>
       LabelGroup(pos, pos, 1, pos - spread / 2, pos + spread / 2)
@@ -93,7 +94,7 @@ class CursorCanvas extends BaseChartCanvas {
   import CursorCanvas._
 
   def draw(scale: ChartParameters, cursorPos: Double,
-           datasetData: Seq[(FloatBTreeSeries, Option[BTreeData[FloatAggregator]])]): Unit = {
+           textValueColors: Seq[(String, Double, Color)]): Unit = {
     val gc = getGraphicsContext2D
 
     gc.clearRect(0, 0, scale.width, scale.height)
@@ -103,24 +104,17 @@ class CursorCanvas extends BaseChartCanvas {
     gc.fillText(s"${scale.finerScale.getPostfixString(scale.dateTimeFromTimestamp(cursorTime))}",
       cursorPos, scale.height - 60)
 
-    val datasetValues = datasetData.collect {
-      case (dataset, Some(leaf: BTreeLeaf[FloatAggregator])) =>
-        (dataset, leaf.point._2)
-      case (dataset, Some(aggr: BTreeAggregate[FloatAggregator])) =>
-        (dataset, aggr.nodeData.sum / aggr.nodeData.count)
-    }.sortBy(-_._2)
-
-    val originalPositions = datasetValues.map { case (dataset, value) =>
+    val sortedTextValueColors = textValueColors.sortBy { case (text, value, color) => -value }
+    val sortedPositions = sortedTextValueColors.map { case (text, value, color) =>
       scale.yValToPos(value)
     }
-    val positions = spreadPositions(originalPositions, 12, 0, scale.height)
+    val fixedPositions = spreadPositions(sortedPositions, 12, 0, scale.height)
 
     gc.save()
-    (datasetValues zip positions).foreach { case ((dataset, value), position) =>
-        gc.setFill(dataset.color)
+    (sortedTextValueColors zip fixedPositions).foreach { case ((text, value, color), position) =>
+        gc.setFill(color)
       RenderHelper.drawContrastText(gc, ChartCommon.CONTRAST_BACKGROUND,
-          f"${dataset.name} = ${value}%.5g",
-          cursorPos, position)
+        text, cursorPos, position)
     }
     gc.restore()
   }

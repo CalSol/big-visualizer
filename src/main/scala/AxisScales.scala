@@ -211,6 +211,6 @@ object AxisScales {
     val truncated = all.drop(scaleIndex + 1)  // drop the input scale and all coarser
     truncated.collectFirst {
       case x: ContextAxisScale => x
-    }.getOrElse(all.tail.asInstanceOf[ContextAxisScale])
+    }.getOrElse(all.last.asInstanceOf[ContextAxisScale])
   }
 }

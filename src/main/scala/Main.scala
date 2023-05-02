@@ -43,8 +43,8 @@ object Main extends JFXApp {
 
   stage = new PrimaryStage {
     title = "Big Data Visualizer"
-    width = 660
-    height = 550
+    width = 1280
+    height = 768
     scene = new Scene {
       val splitPane = new SplitPane {
         items ++= Seq(navigationPane, visualizationPane)

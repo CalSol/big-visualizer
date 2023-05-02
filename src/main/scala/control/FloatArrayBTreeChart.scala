@@ -1,22 +1,18 @@
 package bigvis
 package control
 
+import btree.BTree.TimestampType
 import btree._
 
-import bigvis.btree.BTree.TimestampType
 import scalafx.scene.paint.Color
 
 
-// A JavaFX widget that does lean and mean plotting without the CSS bloat that kills performance
-// Inspired by:
-// charting: https://dlsc.com/2015/06/16/javafx-tip-20-a-lot-to-show-use-canvas/
-// custom controls: https://stackoverflow.com/questions/43808639/how-to-create-totally-custom-javafx-control-or-how-to-create-pane-with-dynamic
-class FloatBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
-    extends BaseBTreeChart(parent) with MultiDatasetBTreeChart[FloatAggregator]
-        with CachedSectionedMultiDatasetBTreeChart[FloatAggregator]
+class FloatArrayBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
+    extends BaseBTreeChart(parent) with MultiDatasetBTreeChart[FloatArrayAggregator]
+        with CachedSectionedMultiDatasetBTreeChart[FloatArrayAggregator]
         with CursorBTreeChart {
-  override protected val aggregatorType: FloatAggregator = FloatAggregator.aggregator
-  override protected def getTreeValueLimits(tree: BTree[FloatAggregator]): (Double, Double) = {
+  override protected val aggregatorType: FloatArrayAggregator = FloatArrayAggregator.aggregator
+  override protected def getTreeValueLimits(tree: BTree[FloatArrayAggregator]): (Double, Double) = {
     (tree.rootData.min, tree.rootData.max)
   }
   override def getCursorData(scale: ChartParameters, xPos: TimestampType): Seq[(String, Double, Color)] = {
@@ -24,18 +20,20 @@ class FloatBTreeChart(parent: SharedAxisCharts, val timeBreak: Long)
 
     datasets.toSeq.flatMap { case (name, (tree, color)) =>
       cachedSections(name).getClosestValue(xPos, tolerance).map {
-        case leaf: BTreeLeaf[FloatAggregator] =>
-          val value = leaf.point._2
-          (f"$name = $value%.5g", value, color)
-        case aggr: BTreeAggregate[FloatAggregator] =>
+        case leaf: BTreeLeaf[FloatArrayAggregator] =>
+          leaf.point._2.toSeq.zipWithIndex.map { case (point, index) =>
+            (f"$name$index = $point%.5g", point.toDouble,
+                ChartTools.colorForSubseries(color, index, leaf.point._2.length))
+          }
+        case aggr: BTreeAggregate[FloatArrayAggregator] =>
           val average = aggr.nodeData.sum / aggr.nodeData.count
-          (f"$name = ($average%.5g)", average, color)
+          Seq((f"$name = ($average%.5g)", average.toDouble, color))
       }
-    }
+    }.flatten
   }
 
 
-  val chartCanvas = new SectionedFloatChartCanvas()
+  val chartCanvas = new SectionedFloatArrayChartCanvas()
   children.append(chartCanvas)
   chartCanvas.widthProperty().bind(width)
   chartCanvas.heightProperty().bind(height)

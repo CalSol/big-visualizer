@@ -6,6 +6,7 @@ import de.siegmar.fastcsv.reader.CsvReader
 
 import java.nio.file.Path
 import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.{SeqMap, mutable}
 import scala.jdk.CollectionConverters.{IteratorHasAsScala, ListHasAsScala}
 import scala.util.Try
@@ -81,9 +82,9 @@ class FloatParser(val name: String) extends Parser with DataBuilder {
 
 
 class FloatArrayBuilder(val name: String) extends DataBuilder {
-  protected val dataBuilder = mutable.ArrayBuffer[(Long, Map[Int, Float])]()
-  protected var assemblyTime: Option[Long] = None
-  protected val assembly = mutable.HashMap[Int, Float]()
+  protected var currentElement: Option[(Long, mutable.ArrayBuilder[Float])] = None
+  protected val dataBuilder = mutable.ArrayBuffer[(Long, Array[Float])]()
+  protected var arraySize: Int = 0
 
   class CellParser(index: Int) extends Parser {
     override def toString: String = s"${getClass.getName}($name, $index)"
@@ -92,22 +93,39 @@ class FloatArrayBuilder(val name: String) extends DataBuilder {
       if (value.isEmpty) {
         return
       }
-      if (assemblyTime != Some(time)) {
-        if (assembly.nonEmpty) {
-          dataBuilder.append((assemblyTime.get, assembly.toMap))
+      if (currentElement.isEmpty || currentElement.get._1 != time) {
+        currentElement match {
+          case Some((currentTime, currentBuffer)) =>
+            arraySize = math.max(arraySize, currentBuffer.length)
+            require(currentTime < time, s"data jumped back in time at $time")
+            dataBuilder.append((currentTime, currentBuffer.result()))
+            currentBuffer.clear()  // reuse the buffer for memory efficiency
+            currentElement = Some((time, currentBuffer))
+          case None =>
+            currentElement = Some((time, Array.newBuilder[Float]))
         }
-        assemblyTime = Some(time)
-        assembly.clear()
+
       }
-      assembly.put(index, value.toFloat)
+      if (currentElement.get._2.length != index) {
+        return  // assumption: arrays must be full - partial arrays are warned at the makeTree stage
+      }
+      currentElement.get._2.addOne(value.toFloat)
     }
 
     override def getBuilder: DataBuilder = FloatArrayBuilder.this
   }
 
-  override def makeTree: BTree[BTreeAggregator] = {
-    // TODO implement me
-    new BTree(FloatAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+  override def makeTree: BTree[FloatArrayAggregator] = {
+    val arrayData = dataBuilder.toSeq.flatMap {
+      case (time, data) if data.length == arraySize =>
+        Some(time -> data)
+      case (time, data) =>
+        println(f"${this.getClass.getSimpleName} ${this.name} discard non-full array (${data.size} / $arraySize) at $time")
+        None
+    }
+    val tree = new BTree(FloatArrayAggregator.aggregator, Parser.BTREE_NODE_SIZE)
+    tree.appendAll(arrayData)
+    tree
   }
 }
 
@@ -124,34 +142,30 @@ object CsvLoader {
   def load(path: Path)(status: String => Unit): Seq[BTreeSeries] = {
     val fileLength = path.toFile.length().toFloat
 
-    val dataTypesPairs = {
-      status(s"determining types")
-      val csv = CsvReader.builder().build(path)
-      val rowIter = csv.iterator().asScala
-      // implied that first is the timestamp
-      val headers = rowIter.take(1).toSeq.head.getFields.asScala.drop(1)
-      val firstRows = rowIter.take(SCAN_ROWS).toSeq
-      val firstCols = firstRows.map { row =>
-        row.getFields.asScala.drop(1)
-      }.transpose
-      val dataTypes = firstCols.map { colData =>
-        colData.filter(_.nonEmpty) match {
-          case seq if seq.nonEmpty && seq.forall(str => Try(str.toDouble).isSuccess) => Some(classOf[Double])
-          case seq if seq.nonEmpty => Some(classOf[String])
-          case Seq() => None
-        }
+    status(s"determining types")
+    val csv = CsvReader.builder().build(path)
+    val rowIter = csv.iterator().asScala
+    // implied that first is the timestamp
+    val headers = rowIter.take(1).toSeq.head.getFields.asScala.toSeq.drop(1)
+    val firstRows = rowIter.take(SCAN_ROWS).toSeq
+    val firstCols = firstRows.map { row =>
+      row.getFields.asScala.drop(1)
+    }.transpose
+    val dataTypes = firstCols.map { colData =>
+      colData.filter(_.nonEmpty) match {
+        case seq if seq.nonEmpty && seq.forall(str => Try(str.toDouble).isSuccess) => Some(classOf[Double])
+        case seq if seq.nonEmpty && seq.forall(str => str.nonEmpty) => Some(classOf[String])
+        case Seq() => None
       }
-      (headers zip dataTypes).toSeq
     }
+    val dataTypesPairs = (headers zip dataTypes)
     val dataTypesMap = dataTypesPairs.toMap
 
     System.gc()
 
     // Infer array types by looking for things ending with numbers and checking for a common prefix
-//    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
-//        .filter(_._2.length >= ARRAY_MIN_LEN)
-    val headerArrays = Map[String, Seq[String]]()
-
+    val headerArrays = headers.groupBy(str => str.reverse.dropWhile(_.isDigit).reverse)
+        .filter(_._2.length >= ARRAY_MIN_LEN)
     val headerDoubleArrays = headerArrays.filter { case (arrayPrefix, arrayElts) =>
       arrayElts.forall(dataTypesMap.getOrElse(_, None) == Some(classOf[Double]))
     }
@@ -200,7 +214,7 @@ object CsvLoader {
     System.gc()
 
     val dataBuilders = parsers.filter(!_.isInstanceOf[DummyParser]).map(_.getBuilder).distinct
-    dataBuilders.toSeq.map { dataBuilder =>
+    dataBuilders.map { dataBuilder =>
       status(s"inserting: ${dataBuilder.name}")
       BTreeSeries(dataBuilder.name, dataBuilder.makeTree)
     }

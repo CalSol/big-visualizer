@@ -19,26 +19,14 @@ object BTreeResampler {
       aggregator: AggregatorType,
       data: Seq[BTreeData[AggregatorType]], minResolution: BTree.TimestampType): Seq[BTreeData[AggregatorType]] = {
     // Chunk by time
-    val chunks = ChunkSeq[BTreeData[AggregatorType], Option[BTree.TimestampType]](data, None, {
-      case (None, elem: BTreeLeaf[AggregatorType]) =>
-        (Some(elem.point._1), false)
-      case (None, elem: BTreeAggregate[AggregatorType]) =>
-        (Some(elem.minTime), false)
-      case (Some(prevBegin), elem: BTreeLeaf[AggregatorType]) =>
-        if ((elem.point._1 - prevBegin >= minResolution) ||
-            (elem.point._1 % minResolution < prevBegin % minResolution)) {
-          (Some(elem.point._1), true)
-        } else {
-          (Some(prevBegin), false)
-        }
-      case (Some(prevBegin), elem: BTreeAggregate[AggregatorType]) =>
-        if ((elem.maxTime - prevBegin >= minResolution) ||
-            (elem.maxTime % minResolution < prevBegin % minResolution)) {
-          (Some(elem.minTime), true)
-        } else {
-          (Some(prevBegin), false)
-        }
-      })
+    val chunks = ChunkSeq[BTreeData[AggregatorType], BTree.TimestampType](data, Long.MinValue, (startTime, node) =>
+      if ((node.maxTime >= startTime + minResolution)
+        || (node.maxTime % minResolution < startTime % minResolution)) {  // force realignment at minResolution bounds
+        (node.minTime, true)
+      } else {
+        (startTime, false)
+      }
+    )
 
     val aggregatedChunks = chunks.map { chunk =>
       if (chunk.length > 1) {

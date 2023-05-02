@@ -125,15 +125,18 @@ class BTree[AggregatorType <: BTreeAggregator](aggregator: AggregatorType, val n
   def validate(): Boolean = root.validate()
 }
 
-sealed trait BTreeData[AggregatorType <: BTreeAggregator]
+sealed trait BTreeData[AggregatorType <: BTreeAggregator] {
+  def minTime: BTree.TimestampType // returns the lowest timestamp in this node, maybe equal to maxTime
+  def maxTime: BTree.TimestampType // returns the highest timestamp in this node, may be equal to minTime
+}
 
 class BTreeLeaf[AggregatorType <: BTreeAggregator](val point: (BTree.TimestampType, AggregatorType#LeafType))
     extends BTreeData[AggregatorType] {
+  override def minTime: BTree.TimestampType = point._1
+  override def maxTime: BTree.TimestampType = point._1
 }
 
 sealed trait BTreeAggregate[AggregatorType <: BTreeAggregator] extends BTreeData[AggregatorType] {
-  def minTime: BTree.TimestampType  // returns the lowest timestamp in this node
-  def maxTime: BTree.TimestampType  // returns the highest timestamp in this node
   def nodeData: AggregatorType#NodeType  // return the aggregate data
 }
 

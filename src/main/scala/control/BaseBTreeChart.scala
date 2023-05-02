@@ -3,8 +3,11 @@ package control
 
 import btree._
 
-import javafx.scene.paint.Color
+import scalafx.Includes._
+import scalafx.beans.property.ObjectProperty
+import scalafx.scene.input.ScrollEvent
 import scalafx.scene.layout.StackPane
+import scalafx.scene.paint.Color
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 
@@ -25,11 +28,24 @@ object ChartTools {
   def colorForIndex(index: Int): Color = {
     Color.hsb((goldenRatioConjugate * 360 * index) % 360, 0.75, 0.75, 0.5)
   }
+
+  protected val kSubseriesBrightnessRange = 0.66
+  protected val kSubseriesHueRange = 60
+
+  def colorForSubseries(seriesColor: Color, index: Int, total: Int): Color = {
+    val indexFrac = index.toFloat / (total - 1)
+    Color.hsb(seriesColor.hue + indexFrac * kSubseriesHueRange - kSubseriesHueRange / 2,
+      seriesColor.saturation,
+      seriesColor.brightness * (1 + kSubseriesBrightnessRange / 2 - indexFrac * kSubseriesBrightnessRange))
+  }
 }
 
 
-case class ChartParameters(width: Int, height: Int, xMin: Long, xMax: Long, yMin: Double, yMax: Double,
+case class ChartParameters(width: Int, height: Int, xAxis: (Long, Long), yAxis: (Double, Double),
                            timeZone: ZoneId) {
+  val (xMin, xMax) = xAxis
+  val (yMin, yMax) = yAxis
+
   val xRange: Long = xMax - xMin
   val xScale: Double = width.toDouble / xRange  // multiply time units by this to get offset in pixels
   val yRange: Double = yMax - yMin
@@ -64,7 +80,11 @@ object BTreeChart {  // rendering properties
   def fromTree(parent: SharedAxisCharts, series: BTreeSeries): BaseBTreeChart = series.tree match {
     // TODO figure out a clean way around type erasure
     case tree: BTree[FloatAggregator] @unchecked if tree.aggregatorType == FloatAggregator.aggregator =>
-      val chart = new FloatBTreeChart(parent, 1000)  // TODO customizable timeBreak
+      val chart = new FloatBTreeChart(parent, 5500)  // TODO customizable timeBreak
+      chart.addDataset(series)
+      chart
+    case tree: BTree[FloatArrayAggregator]@unchecked if tree.aggregatorType == FloatArrayAggregator.aggregator =>
+      val chart = new FloatArrayBTreeChart(parent, 5500) // TODO customizable timeBreak
       chart.addDataset(series)
       chart
     case tree: BTree[StringAggregator] @unchecked if tree.aggregatorType == StringAggregator.aggregator =>
@@ -76,25 +96,44 @@ object BTreeChart {  // rendering properties
 
 // Base BTreeChart class that provides time axis functionality.
 abstract class BaseBTreeChart(val container: SharedAxisCharts) extends StackPane {
+  // implement me: add a dataset to this chart
+  def addDataset(series: BTreeSeries): Boolean
+
   minWidth = 0  // allow resizing down
   minHeight = 0  // allow resizing down
 
-  // Adds a dataset, returning whether it was successfully added
-  def addDataset(series: BTreeSeries): Boolean
+  val yAxis: ObjectProperty[(Double, Double)] = ObjectProperty((0.0, 0.0))  // bottom (lower), upper (higher)
+
+  this.onScroll = (event: ScrollEvent) => {
+    if (event.isShiftDown) {
+      if (event.isControlDown) {
+        val increment = -event.getDeltaX // shifts X/Y axes: https://stackoverflow.com/questions/42429591/javafx-shiftscrollwheel-always-return-0-0
+        val range = yAxis.value._2 - yAxis.value._1
+        val mouseFrac = 1 - event.getY / height.value
+        val mouseValue = yAxis.value._1 + (range * mouseFrac)
+        val newRange = range * Math.pow(1.01, increment)
+        yAxis.value = (mouseValue - (newRange * mouseFrac), mouseValue + (newRange * (1 - mouseFrac)))
+      } else {
+        val increment = event.getDeltaX
+        val range = yAxis.value._2 - yAxis.value._1
+        val shift = (range / 256) * increment
+        yAxis.value = (yAxis.value._1 + shift, yAxis.value._2 + shift)
+      }
+      event.consume()
+    }
+  }
 
   val gridCanvas = new GridCanvas()
   children.append(gridCanvas)
   gridCanvas.widthProperty().bind(width)
   gridCanvas.heightProperty().bind(height)
-  Seq(width, height, container.xLower, container.xUpper).foreach { observable =>
+  Seq(width, height, container.xAxis).foreach { observable =>
     observable.onChange(redrawGrid())
   }
 
-  protected def timeZone: ZoneId = ZoneId.of(ZoneId.SHORT_IDS.get("CST"))  // TODO user-configurable
-
   protected def redrawGrid(): Unit = {
     val scale = ChartParameters(width.value.toInt, height.value.toInt,
-      container.xLower.value, container.xUpper.value, 0, 0, timeZone)
+      container.xAxis.value, (0, 0), container.timeZone)
     gridCanvas.draw(scale)
   }
 }
