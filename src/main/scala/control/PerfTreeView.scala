@@ -91,6 +91,10 @@ class PerfTreeView extends TreeTableView[PerfTreeItem]() {
       cellValueFactory = { _.value.value.value.sectionTimeProp }
     },
     new TreeTableColumn[PerfTreeItem, String] {
+      text = "Resample Time"
+      cellValueFactory = { _.value.value.value.resampleTimeProp }
+    },
+    new TreeTableColumn[PerfTreeItem, String] {
       text = "Render Time"
       cellValueFactory = { _.value.value.value.renderTimeProp }
     },
