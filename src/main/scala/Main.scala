@@ -45,7 +45,6 @@ object Main extends JFXApp {
   memoryTimer.setCycleCount(Timeline.Indefinite)
   memoryTimer.play()
 
-
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
   val navigationPane = new VBox {
