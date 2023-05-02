@@ -1,4 +1,6 @@
-package bigvis.control
+package bigvis
+package control
+
 import bigvis.{BTreeSeries, CsvLoader}
 import scalafx.Includes._
 import scalafx.beans.property.StringProperty
@@ -24,6 +26,7 @@ class DataTreeView extends TreeTableView[DataTreeItem]() {
     expanded = true
     children = Seq()
   })
+  this.setShowRoot(false)
 
   // All data items available, used for drag-and-drop
   val dataItems = mutable.HashMap[String, BTreeSeries]()

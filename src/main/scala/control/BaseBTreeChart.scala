@@ -4,10 +4,7 @@ package control
 import btree._
 
 import javafx.scene.paint.Color
-import scalafx.Includes._
-import scalafx.scene.input.{DragEvent, TransferMode}
 import scalafx.scene.layout.StackPane
-import scalafx.scene.shape.Rectangle
 
 import java.time.{Instant, ZoneId, ZoneOffset, ZonedDateTime}
 

@@ -1,17 +1,31 @@
 package bigvis
 
-import control.{DataTreeView, SharedAxisCharts}
+import control.{DataTreeView, PerfTreeView, SharedAxisCharts}
 
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.scene.Scene
-import scalafx.scene.control.SplitPane
+import scalafx.scene.control.{Label, SplitPane}
 import scalafx.scene.layout.VBox.setVgrow
 import scalafx.scene.layout.{Priority, VBox}
+import scalafx.stage.Stage
 
 
 object Main extends JFXApp {
-  println(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}")
+  val perfTree = new PerfTreeView()
+  val perfStage = new Stage() {
+    title = "Performance"
+    scene = new Scene {
+      root = new VBox {
+        children = Seq(
+          new Label(s"Rendering pipeline: ${com.sun.prism.GraphicsPipeline.getPipeline.getClass.getName}"),
+          perfTree
+        )
+      }
+    }
+  }
+  perfStage.show()
+
 
   // See layouts documentation
   // https://docs.oracle.com/javafx/2/layout/builtin_layouts.htm
@@ -38,6 +52,9 @@ object Main extends JFXApp {
       }
       splitPane.setDividerPositions(0.25)
       root = splitPane
+    }
+    onCloseRequest = { _ =>
+      perfStage.close()  // also close the performance window when the main window closes
     }
   }
 }
